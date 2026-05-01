@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #0a0a0a; /* Deep Charcoal Black */
+  --color-foreground: #f0f0f0; /* Off-white */
+  --color-primary: #3b82f6; /* blue-500 */
+  --color-accent: #10b981; /* emerald-500 */
+  --color-destructive: #ef4444; /* red-500 */
+  --color-warning: #f59e0b; /* amber-500 */
+  --color-charcoal-light: #1e1e1e;
+  --color-charcoal-border: #333333;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+:root {
+  --background: #0a0a0a;
+  --foreground: #f0f0f0;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism utilities tailored for charcoal black */
+.glass {
+  background: rgba(10, 10, 10, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel {
+  background: rgba(24, 24, 24, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+/* Leaflet dark theme tweaks */
+.leaflet-container {
+  background-color: #0a0a0a !important;
+}
+.leaflet-layer,
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out,
+.leaflet-control-attribution {
+  filter: invert(100%) hue-rotate(180deg) brightness(85%) contrast(100%);
+}
