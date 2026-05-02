@@ -108,7 +108,20 @@ function AddressSearch({ placeholder, onSelect }: { placeholder: string, onSelec
 
 export default function UnifiedPortal() {
   const [role, setRole] = useState<Role>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
+  
+  useEffect(() => {
+    setIsMounted(true);
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get("role");
+    if (r === "Admin" || r === "Donor" || r === "NGO") {
+      setRole(r as Role);
+    } else {
+      window.location.href = "/portals";
+    }
+  }, []);
+
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [passcode, setPasscode] = useState("");
   const [error, setError] = useState("");
   
@@ -119,23 +132,65 @@ export default function UnifiedPortal() {
   const [toastMessage, setToastMessage] = useState<{title: string, desc: string} | null>(null);
 
   // --- GLOBAL SIMULATED STATE ---
-  const [usersNetwork, setUsersNetwork] = useState([
+  const defaultUsersNetwork = [
     { id: "U-882", name: "Taj West End", role: "Donor", status: "Verified", totalImpact: 1450 },
     { id: "U-104", name: "Robin Hood Army", role: "NGO", status: "Verified", totalImpact: 8900 },
     { id: "U-991", name: "Local Bakery Corp", role: "Donor", status: "Pending Approval", totalImpact: 0 },
     { id: "U-205", name: "Bangalore Food Bank", role: "NGO", status: "Verified", totalImpact: 3240 },
-  ]);
+  ];
+  const [usersNetwork, setUsersNetwork] = useState<typeof defaultUsersNetwork>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rf_usersNetwork');
+      if (saved) return JSON.parse(saved);
+    }
+    return defaultUsersNetwork;
+  });
 
-  const [orders, setOrders] = useState<UnifiedOrder[]>([
+  const defaultOrders: UnifiedOrder[] = [
     { id: "R-101", orderType: "Donation", foodName: "Mixed Veg Buffet", foodType: "Veg", quantity: 30, cookedTime: "10:30 AM", expiryTime: Date.now() + 20 * 60000, distance: "1.2 km", status: "Waiting", donorLocation: { lat: 12.9716, lng: 77.5946, address: "MG Road, Bangalore" } },
     { id: "R-102", orderType: "Donation", foodName: "Chicken Biryani Bulk", foodType: "Non-Veg", quantity: 50, cookedTime: "11:00 AM", expiryTime: Date.now() + 45 * 60000, distance: "3.4 km", status: "Waiting", donorLocation: { lat: 12.9352, lng: 77.6245, address: "Koramangala, Bangalore" } }
-  ]);
+  ];
+  const [orders, setOrders] = useState<UnifiedOrder[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rf_orders');
+      if (saved) return JSON.parse(saved);
+    }
+    return defaultOrders;
+  });
 
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
+  const defaultAuditLogs: AuditLog[] = [
     { id: "L-001", time: new Date().toLocaleTimeString(), action: "SYSTEM_START", role: "System", details: "Unified Orders State Initialized" }
-  ]);
-  const [globalNotifications, setGlobalNotifications] = useState<{id: string, role: string, msg: string, read: boolean}[]>([]);
-  const [mealsSaved, setMealsSaved] = useState(142);
+  ];
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rf_auditLogs');
+      if (saved) return JSON.parse(saved);
+    }
+    return defaultAuditLogs;
+  });
+
+  const [globalNotifications, setGlobalNotifications] = useState<{id: string, role: string, msg: string, read: boolean}[]>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rf_globalNotifications');
+      if (saved) return JSON.parse(saved);
+    }
+    return [];
+  });
+
+  const [mealsSaved, setMealsSaved] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('rf_mealsSaved');
+      if (saved) return JSON.parse(saved);
+    }
+    return 142;
+  });
+
+  // Save to localStorage on change
+  useEffect(() => { localStorage.setItem('rf_usersNetwork', JSON.stringify(usersNetwork)); }, [usersNetwork]);
+  useEffect(() => { localStorage.setItem('rf_orders', JSON.stringify(orders)); }, [orders]);
+  useEffect(() => { localStorage.setItem('rf_auditLogs', JSON.stringify(auditLogs)); }, [auditLogs]);
+  useEffect(() => { localStorage.setItem('rf_globalNotifications', JSON.stringify(globalNotifications)); }, [globalNotifications]);
+  useEffect(() => { localStorage.setItem('rf_mealsSaved', JSON.stringify(mealsSaved)); }, [mealsSaved]);
   const [editingOrder, setEditingOrder] = useState<UnifiedOrder | null>(null);
   
   const [donorForm, setDonorForm] = useState({ name: "", type: "Veg", quantity: 10, time: "12:00", spoilageMins: 60 });
@@ -244,7 +299,7 @@ export default function UnifiedPortal() {
   const renderAdminLogin = () => (
     <div className="flex-1 flex items-center justify-center p-6 min-h-[calc(100vh-64px)]">
       <div className="max-w-md w-full bg-[#161616] border border-white/5 p-8 rounded-3xl relative overflow-hidden shadow-2xl">
-        <button onClick={() => setRole(null)} className="absolute top-4 left-4 p-2 text-slate-400 hover:text-white"><ArrowRight className="rotate-180" size={20}/></button>
+        <button onClick={() => window.location.href = '/portals'} className="absolute top-4 left-4 p-2 text-slate-400 hover:text-white"><ArrowRight className="rotate-180" size={20}/></button>
         <div className="relative z-10 text-center space-y-6 mt-4">
           <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center mx-auto text-primary border border-primary/20">
             <Lock size={32} />
@@ -290,7 +345,7 @@ export default function UnifiedPortal() {
             <div className="flex items-center gap-3"><Bell size={18} /> Inbox</div>
             {unreadCount > 0 && <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{unreadCount}</span>}
           </button>
-          <button onClick={() => setRole(null)} className="mt-auto flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><X size={18}/> Exit Portal</button>
+          <button onClick={() => window.location.href = '/portals'} className="mt-auto flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><X size={18}/> Exit Portal</button>
         </div>
 
         <div className="flex-1 bg-[#161616] border border-white/5 rounded-2xl p-8 overflow-y-auto shadow-xl relative">
@@ -478,7 +533,7 @@ export default function UnifiedPortal() {
           <button onClick={() => setNgoTab("pickups")} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${ngoTab === "pickups" ? "bg-white/10 text-white" : "text-slate-400 hover:text-white hover:bg-white/5"}`}>
             <ListOrdered size={18} /> My Pickups
           </button>
-          <button onClick={() => setRole(null)} className="mt-auto flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><X size={18}/> Exit Portal</button>
+          <button onClick={() => window.location.href = '/portals'} className="mt-auto flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><X size={18}/> Exit Portal</button>
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden bg-[#161616] border border-white/5 rounded-2xl shadow-xl">
@@ -665,7 +720,7 @@ export default function UnifiedPortal() {
               </button>
             ))}
           </div>
-          <button onClick={() => { setIsAuthenticated(false); setRole(null); }} className="mt-auto flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><X size={18}/> Lock & Exit</button>
+          <button onClick={() => { setIsAuthenticated(false); window.location.href = '/portals'; }} className="mt-auto flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><X size={18}/> Lock & Exit</button>
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden">
@@ -858,6 +913,14 @@ export default function UnifiedPortal() {
       </div>
     );
   };
+
+  if (!isMounted) {
+    return (
+      <div className="h-screen bg-black flex items-center justify-center">
+        <Loader2 className="animate-spin text-primary" size={48} />
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-black flex flex-col overflow-hidden font-sans">

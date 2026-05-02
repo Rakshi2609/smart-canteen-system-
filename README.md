@@ -1,115 +1,154 @@
-# 🍱 RescueFlow.ai — SaaS Food Rescue Logistics Platform
+# 🥗 SmartCanteen — AI-Powered Food Rescue Network
 
-> **A city-wide food rescue management system that connects Hotels/Restaurants (Donors) with NGOs and Volunteers, powered by real-time logistics, live delivery tracking, and a public food locator.**
+> **India's First AI-Powered Food Rescue Platform** — connecting surplus food from restaurants & hotels to verified NGOs and volunteers in real-time.
 
----
-
-## 🌟 Live Features
-
-### 🏠 Landing Screen — Role-Based Portal Selection
-A stunning dark-mode landing page with animated floating background bubbles. Users can self-select their role to enter the appropriate portal:
-- **Admin Portal** — Platform command center
-- **Donor Portal** — For hotels, restaurants, and individuals with surplus food
-- **NGO / Volunteer Portal** — For organizations rescuing and distributing food
+![SmartCanteen Banner](https://img.shields.io/badge/SmartCanteen-Food%20Rescue-3b82f6?style=for-the-badge&logo=leaflet&logoColor=white)
+![Next.js](https://img.shields.io/badge/Next.js-15-black?style=for-the-badge&logo=next.js)
+![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3-38bdf8?style=for-the-badge&logo=tailwindcss)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?style=for-the-badge&logo=typescript)
 
 ---
 
-### 🛡️ Admin Portal (`/admin` → Passcode: `og123`)
-A **SaaS-grade logistics command center** with 5 dashboards:
+## 🌟 Overview
 
-| Tab | Description |
-|-----|-------------|
-| **Platform Overview** | Live KPIs: Active Operations, Total Meals Rescued, Network Size, Expiry Rate |
-| **Global Operations** | Real-time log of all food rescue operations with Force Expire and Delete controls |
-| **Partner Network** | User directory to Verify, Suspend, and Restore access for all Donors and NGOs |
-| **Audit Logs** | Full immutable trail of every action across all portals |
-| **AI Insights** | Analytics on Route Optimization and Expiry Hotspots |
+**SmartCanteen** is a full-stack, role-based food rescue management platform built with Next.js 15, TailwindCSS, and Framer Motion. It features three specialized portals (Admin, Donor, NGO), a live map powered by OpenStreetMap + Google Maps, a UPI QR payment system, and a real-time unified order state system persisted via `localStorage`.
 
 ---
 
-### 🍲 Donor Portal
-A multi-step workflow for food donors:
-1. **Address Entry** — Powered by [Photon Autocomplete API](https://photon.komoot.io) for real-time address suggestions
-2. **Food Listing** — Submit surplus food details (name, quantity, food type, expiry)
-3. **History** — Track all submitted donations and their real-time status (Waiting → Pickup Assigned → Completed)
-4. **Inbox** — Receive delivery confirmations when NGOs successfully collect food
+## 🖥️ Live Demo Features
+
+### 🔐 Portal System (`/portals`)
+- Animated glassmorphic portal selection page with floating bubble background
+- Three role-based portals with pre-filled credentials (no typing needed):
+  - **Admin** — Passcode: `og123`
+  - **Donor** — Email pre-filled, direct dashboard access
+  - **NGO** — Email pre-filled, direct dashboard access
+- Smooth Framer Motion modal transitions per portal
+- Once logged in → goes directly to the role-specific dashboard, skipping any secondary login
 
 ---
 
-### 🤝 NGO / Volunteer Portal
-- Browse all available live food donations from across the city
-- **Accept Pickup** → Enter delivery destination address
-- **Track Delivery** → Opens a full-screen modal with:
-  - Real road polyline from OSRM routing engine
-  - Animated 🛵 delivery scooter moving along the actual road path
-  - Estimated delivery time based on distance
+### 🛡️ Admin Dashboard (`/admin?role=Admin`)
+- **Overview Tab**: Live global stats (meals saved, active orders, expiry alerts)
+- **Orders Tab**: Full global donation order management with status controls (`Waiting → Accepted → Delivered → Expired`)
+- **Network Tab**: Verified partner list (Donors & NGOs) with approval/rejection controls
+- **AI Insights Tab**: Simulated AI-powered analytics on route optimization and expiry hotspots
+- Real-time toast notifications on order status changes
+- **State Persisted**: All orders, audit logs, and user network data are saved to `localStorage` and survive portal switching
 
 ---
 
-### 📍 Live Map — "Find Food Near Me" (`/map`)
-A **public food bank locator** accessible to anyone:
-- Click glowing pins on the map to see active NGOs and Donors distributing food
-- View real-time surplus food portions, types, and expiry windows
-- **"Get Directions"** button opens Google Maps routing to the food bank instantly
+### 🥗 Donor Dashboard (`/admin?role=Donor`)
+- **Donate Tab**: Form to list surplus food with name, type (Veg/Non-Veg), quantity, cooked time, and spoilage window
+- **Active Donations Tab**: Live view of all listed food with countdown expiry timers, status badges, and edit/delete controls
+- New donations are instantly written to the **global shared state** visible to Admin and NGO portals
 
 ---
 
-### ❤️ Support Portal (`/support`)
-A **portfolio-grade demo donation and tipping system**:
-- **Donate to NGOs** — Grid of verified NGO cards (Robin Hood Army, Feeding India, etc.) with meal impact stats
-- **Tip Volunteers** — Quick-tip (₹20, ₹50, ₹100) or custom amount after a successful delivery
-- **Simulated QR Payment Flow** — Generates a live QR code (`react-qr-code`) encoding the payment string
-- **Animated Modal** — 3-step flow: Amount → QR Scan → Success using Framer Motion
-
-> ⚠️ Demo system only. No real payments are processed.
+### 🤝 NGO Dashboard (`/admin?role=NGO`)
+- **Live Rescue Tab**: Live feed of all available donations from Donors with accept button
+- **My Pickups Tab**: Accepted orders with a real OSRM-powered delivery route animation on the map
+- **Delivery Map**: Route drawn on an embedded Google Map using the free OSRM routing engine; animated 🛵 emoji rides the route in real-time
 
 ---
 
-## 🔧 Tech Stack
+### 🗺️ Live Map (`/map`)
+**Restaurant Finder** — powered by **OpenStreetMap Overpass API** (free, no API key needed):
+- Fetches real restaurants, cafes, fast food, and canteens within 2.5km of the user's location
+- Falls back to curated mock data if outside mapped areas
+- **Color-coded teardrop markers**:
+  - 🔴 Red = High Priority
+  - 🟠 Orange = Medium Priority
+  - 🟢 Green = Available
+- **Heatmap Toggle** 🔥: Toggling the Flame button activates a Google Maps Visualization heatmap overlay showing food density; toggling again fully removes it (imperative cleanup via `useRef`)
+- **Interactive Sidebar**: Click any pin to see:
+  - Open/Closed status
+  - Cuisine type
+  - Live crowd level (Low / Moderate / Busy)
+  - Amenities (WiFi, Takeaway, Dine-in)
+  - ⭐ Star rating widget (hover + click)
+  - **Check In** button with success animation
+  - **Copy Location** (copies Google Maps link to clipboard)
+  - **Bookmark** (save places across session)
+- Dark/Light map theme toggle
+
+---
+
+### ❤️ Support Page (`/support`)
+- **Donate to NGOs**: Cards for Robin Hood Army, Feeding India, Bangalore Food Bank, No Food Waste
+- **Tip Volunteers**: Quick tip presets (₹20, ₹50, ₹100) or custom amount
+- **UPI QR Payment Flow**:
+  1. Select amount → generates a **real UPI deep-link QR code** (`upi://pay?...`)
+  2. Scan on phone → opens Google Pay / PhonePe directly
+  3. Click "I've Paid, Verify Status" → 1.5s simulated API check → success screen
+
+---
+
+### 🏠 Landing Page (`/`)
+Fully informational — **only the Explore button navigates**. Sections include:
+- Hero with animated stats counter and floating bubble background
+- **Three Portals Section**: Feature cards for Admin, Donor, and NGO with detailed bullet points
+- **Live Map Section**: Feature overview + decorative animated map preview with pulsing pins
+- **Support Section**: Feature cards + fake UPI QR preview card
+- **Final CTA** at the bottom
+
+---
+
+## 🛠️ Tech Stack
 
 | Layer | Technology |
-|-------|-----------|
-| **Framework** | Next.js 16 (App Router) |
-| **UI** | TailwindCSS v4 |
-| **Animations** | Framer Motion |
-| **Icons** | Lucide React |
-| **Map Tiles** | Google Maps JS API (`@react-google-maps/api`) |
-| **Address Autocomplete** | [Photon by Komoot](https://photon.komoot.io) |
-| **Road Routing** | [OSRM Open Source Routing Machine](https://router.project-osrm.org) |
-| **QR Generation** | `react-qr-code` |
-| **Language** | TypeScript |
+|---|---|
+| Framework | Next.js 15 (App Router) |
+| Language | TypeScript |
+| Styling | TailwindCSS v3 |
+| Animations | Framer Motion |
+| Map (Display) | Google Maps API + `@react-google-maps/api` |
+| Map (Restaurants) | OpenStreetMap Overpass API (FREE, no key) |
+| Map (Routing) | OSRM (FREE, open routing engine) |
+| Map (Heatmap) | Google Maps Visualization Library |
+| QR Code | `react-qr-code` |
+| Icons | Lucide React |
+| State | React `useState` + `localStorage` persistence |
+| Font | Inter (Google Fonts) |
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Clone the Repository
+### Prerequisites
+- Node.js 18+
+- npm or yarn
+
+### Installation
+
 ```bash
+# Clone the repo
 git clone https://github.com/Sharan-Sanadi/smart-canteen-system-.git
 cd smart-canteen-system-
-```
 
-### 2. Install Dependencies
-```bash
+# Install dependencies
 npm install
-```
 
-### 3. Set Up Environment Variables
-Create a `.env.local` file in the project root with the following:
-```env
-NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key
-NEXT_PUBLIC_GEOCODING_API=https://nominatim.openstreetmap.org
-NEXT_PUBLIC_AUTOCOMPLETE_API=https://photon.komoot.io
-NEXT_PUBLIC_ROUTING_API=https://router.project-osrm.org
-```
+# Create environment file
+cp .env.example .env.local
+# Add your Google Maps API Key (optional — map tiles still load without it)
+# NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_key_here
 
-> **Note:** The Geocoding, Autocomplete, and Routing APIs are all **free and open-source**. Only Google Maps requires a paid API key for the base map tiles.
-
-### 4. Run Development Server
-```bash
+# Run development server
 npm run dev
 ```
+
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+---
+
+## 🔑 Environment Variables
+
+```env
+NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+```
+
+> ℹ️ The Google Maps key is **optional**. Map tiles and the restaurant finder (Overpass API) work without it. The key only enhances the Places API fallback.
 
 ---
 
@@ -118,56 +157,38 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 ```
 src/
 ├── app/
-│   ├── admin/          # Admin & role-based portals (Donor + NGO)
-│   │   └── page.tsx    # Main unified application file
-│   ├── map/            # Public food locator page
-│   │   └── page.tsx
-│   ├── support/        # Demo donation & tipping portal
-│   │   └── page.tsx
-│   ├── globals.css     # Global styles & design tokens
-│   └── layout.tsx      # Root layout with Navbar
-├── components/
-│   ├── LiveMap.tsx     # Reusable Google Maps component with OSRM routing
-│   └── Navbar.tsx      # Global navigation bar
-└── lib/
-    └── firebase.ts     # Firebase SDK config (for future DB integration)
+│   ├── page.tsx          # Landing page (informational, Explore CTA only)
+│   ├── portals/
+│   │   └── page.tsx      # Portal selection with role modals
+│   ├── admin/
+│   │   └── page.tsx      # Unified dashboard (Admin / Donor / NGO)
+│   ├── map/
+│   │   └── page.tsx      # Food near me map page
+│   └── support/
+│       └── page.tsx      # UPI donation & volunteer tip page
+└── components/
+    └── LiveMap.tsx       # Google Maps + Overpass API + OSRM + Heatmap
 ```
 
 ---
 
-## 🗺️ Application Flow
+## 🗺️ Roadmap / Next Steps
 
-```
-Landing (/) → Role Selection
-    ↓
-Admin (passcode: og123)    Donor                    NGO / Volunteer
-    ↓                          ↓                           ↓
-Platform Overview         Enter Address              Browse Available Food
-Global Operations     →   List Surplus Food      →   Accept Pickup
-Partner Network           Track Donations             Live Delivery Map (🛵)
-Audit Logs                Inbox Notifications         Track ETA
-AI Insights
-```
+- [ ] **Firebase/Supabase integration** — replace `localStorage` with a real persistent database
+- [ ] **NextAuth authentication** — real login instead of mock credentials
+- [ ] **Razorpay/Stripe integration** — real webhook for UPI payment confirmation
+- [ ] **Push notifications** — notify NGOs when new food is listed nearby
+- [ ] **Mobile app** — React Native companion app for volunteers
 
 ---
 
-## 🔮 Roadmap
-
-- [ ] **Firebase Firestore Integration** — Persist all donation and delivery data across sessions
-- [ ] **NextAuth / Firebase Auth** — Replace passcode-based Admin access with proper authentication
-- [ ] **Push Notifications** — Alert NGOs when new food is available near them
-- [ ] **Dynamic Animation Speed** — Tie delivery scooter speed to actual OSRM travel time
-- [ ] **Real Payment Gateway** — Integrate Razorpay for the Support portal
-
----
-
-## 🧑‍💻 Author
+## 👨‍💻 Author
 
 **Sharan Sanadi**  
-Built with ❤️ as a SaaS portfolio project demonstrating full-stack logistics, real-time mapping, and modern UI/UX.
+[GitHub](https://github.com/Sharan-Sanadi) · Full Stack Developer & AI Enthusiast
 
 ---
 
 ## 📄 License
 
-This project is open source and available under the [MIT License](LICENSE).
+MIT License — feel free to use, fork, and build upon this project.

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import QRCode from "react-qr-code";
-import { Heart, Coins, CheckCircle2, AlertCircle, X } from "lucide-react";
+import { Heart, Coins, CheckCircle2, AlertCircle, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 type Tab = "NGO" | "Volunteer";
@@ -27,6 +27,7 @@ export default function SupportPage() {
   // Payment State
   const [amount, setAmount] = useState<number | "custom" | "">("");
   const [customAmount, setCustomAmount] = useState<string>("");
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const handleOpenModal = (entityName: string) => {
     setSelectedEntity(entityName);
@@ -44,10 +45,14 @@ export default function SupportPage() {
   };
 
   const handleScanSuccess = () => {
-    setPaymentStep("success");
+    setIsVerifying(true);
     setTimeout(() => {
-      setIsModalOpen(false);
-    }, 3000);
+      setIsVerifying(false);
+      setPaymentStep("success");
+      setTimeout(() => {
+        setIsModalOpen(false);
+      }, 3000);
+    }, 1500); // Simulate API check
   };
 
   return (
@@ -241,10 +246,10 @@ export default function SupportPage() {
               {paymentStep === "qr" && (
                 <div className="flex flex-col items-center text-center">
                   <h2 className="text-2xl font-bold text-white mb-2">Scan to Pay</h2>
-                  <p className="text-sm text-slate-400 mb-8">Scan this QR using any UPI app (Demo Only)</p>
+                  <p className="text-sm text-slate-400 mb-8">Open any UPI App on your phone and scan</p>
                   
                   <div className="bg-white p-4 rounded-2xl shadow-xl mb-8">
-                    <QRCode value={`demo-payment-amount-${amount}`} size={200} />
+                    <QRCode value={`upi://pay?pa=rescueflow@ybl&pn=${encodeURIComponent(selectedEntity)}&am=${amount}&cu=INR`} size={200} />
                   </div>
                   
                   <div className="flex items-center justify-between w-full p-4 bg-black/40 rounded-xl border border-white/5 mb-8">
@@ -252,20 +257,25 @@ export default function SupportPage() {
                     <span className="text-white font-bold text-xl">₹{amount}</span>
                   </div>
 
-                  <div className="flex gap-4 w-full">
-                    <button 
-                      onClick={() => setPaymentStep("amount")}
-                      className="flex-1 py-3 bg-transparent border border-white/10 hover:bg-white/5 text-white rounded-xl font-bold transition-colors"
-                    >
-                      Back
-                    </button>
-                    <button 
-                      onClick={handleScanSuccess}
-                      className="flex-[2] py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition-colors shadow-lg shadow-emerald-500/25"
-                    >
-                      I Have Scanned
-                    </button>
-                  </div>
+                  <button 
+                    onClick={handleScanSuccess}
+                    disabled={isVerifying}
+                    className="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-bold transition-colors disabled:opacity-70 disabled:cursor-wait shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2"
+                  >
+                    {isVerifying ? (
+                      <><Loader2 className="animate-spin" size={20} /> Verifying Payment...</>
+                    ) : (
+                      "I've Paid, Verify Status"
+                    )}
+                  </button>
+                  
+                  <button 
+                    onClick={() => setPaymentStep("amount")}
+                    disabled={isVerifying}
+                    className="mt-4 text-sm text-slate-500 hover:text-white transition-colors underline disabled:opacity-50"
+                  >
+                    Cancel Payment
+                  </button>
                 </div>
               )}
 

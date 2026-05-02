@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { GoogleMap, useJsApiLoader, Marker, InfoWindow, Polyline } from "@react-google-maps/api";
-import { Loader2, Navigation } from "lucide-react";
+import { Loader2, Navigation, Flame } from "lucide-react";
 
 export interface Canteen {
   id: string;
@@ -11,6 +11,9 @@ export interface Canteen {
   lng: number;
   status: string;
   waitTime: string;
+  cuisine?: string;
+  address?: string;
+  openNow?: boolean;
 }
 
 interface LocationPoint {
@@ -24,7 +27,7 @@ interface LiveMapProps {
   deliveryRoute?: { origin: LocationPoint; destination: LocationPoint };
 }
 
-const libraries: ("places" | "geometry")[] = ["places", "geometry"];
+const libraries: ("places" | "geometry" | "visualization")[] = ["places", "geometry", "visualization"];
 
 const mapContainerStyle = {
   width: "100%",
@@ -67,6 +70,40 @@ export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps
   const [restaurants, setRestaurants] = useState<Canteen[]>([]);
   const [activeMarker, setActiveMarker] = useState<string | null>(null);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
+
+  // Imperatively control the heatmap layer so it actually cleans up on toggle
+  useEffect(() => {
+    if (!map || !window.google || restaurants.length === 0) return;
+    if (showHeatmap) {
+      const points = restaurants.map(r => new window.google.maps.LatLng(r.lat, r.lng));
+      if (!heatmapRef.current) {
+        heatmapRef.current = new window.google.maps.visualization.HeatmapLayer({
+          data: points,
+          radius: 50,
+          opacity: 0.65,
+          gradient: [
+            "rgba(0,0,0,0)",
+            "rgba(255,235,0,0.6)",
+            "rgba(255,128,0,0.85)",
+            "rgba(220,38,38,1)"
+          ]
+        });
+      } else {
+        heatmapRef.current.setData(points);
+      }
+      heatmapRef.current.setMap(map);
+    } else {
+      if (heatmapRef.current) {
+        heatmapRef.current.setMap(null);
+      }
+    }
+
+    return () => {
+      if (heatmapRef.current) heatmapRef.current.setMap(null);
+    };
+  }, [showHeatmap, map, restaurants]);
 
   // --- DELIVERY ROUTE STATE (OSRM) ---
   const [routePath, setRoutePath] = useState<{lat: number, lng: number}[]>([]);
@@ -158,51 +195,76 @@ export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps
     };
   }, [deliveryRoute, map]);
 
-  // Standard Canteen Fetching Logic (Only run if no deliveryRoute is active)
-  const fetchNearbyRestaurants = useCallback((location: {lat: number, lng: number}, currentMap: google.maps.Map) => {
-    if (!currentMap || deliveryRoute) return;
-    const centerLatLng = new window.google.maps.LatLng(location.lat, location.lng);
-
-    const generateMockRestaurants = (baseLat: number, baseLng: number): Canteen[] => {
-      const mocks = [
-        { latOffset: 0.002, lngOffset: 0.002, name: "Main Campus Cafeteria" },
-        { latOffset: -0.006, lngOffset: 0.005, name: "Engineering Block Canteen" },
-        { latOffset: 0.012, lngOffset: -0.008, name: "Hostel Mess" },
-      ];
-      return mocks.map((mock, idx) => ({
-        id: `mock-${idx}`,
-        name: mock.name,
-        lat: baseLat + mock.latOffset,
-        lng: baseLng + mock.lngOffset,
-        status: "available",
-        waitTime: "5 mins"
-      }));
-    };
-
+  const fetchNearbyRestaurants = useCallback(async (location: {lat: number, lng: number}) => {
+    if (deliveryRoute) return;
+    const { lat, lng } = location;
+    const radius = 2500;
+    const query = `
+      [out:json][timeout:15];
+      (
+        node["amenity"~"restaurant|cafe|fast_food|food_court|canteen|bar|pub"](around:${radius},${lat},${lng});
+        way["amenity"~"restaurant|cafe|fast_food|food_court|canteen|bar|pub"](around:${radius},${lat},${lng});
+      );
+      out body;
+    `;
+    const statuses = ["available", "medium-priority", "high-priority"];
+    const waitTimes = ["2 min walk", "5 min walk", "8 min walk", "12 min walk", "3 min walk"];
     try {
-      const service = new window.google.maps.places.PlacesService(currentMap);
-      service.nearbySearch({ location, radius: 2000, type: 'restaurant' }, (results, status) => {
-        if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
-          setRestaurants(results.slice(0, 15).map(place => ({
-            id: place.place_id || Math.random().toString(),
-            name: place.name || "Unknown",
-            lat: place.geometry?.location?.lat() || 0,
-            lng: place.geometry?.location?.lng() || 0,
-            status: "available",
-            waitTime: "10 mins"
-          })));
-        } else {
-          setRestaurants(generateMockRestaurants(location.lat, location.lng));
-        }
+      const res = await fetch(`https://overpass-api.de/api/interpreter`, {
+        method: "POST",
+        body: query,
       });
-    } catch (e) {
-      setRestaurants(generateMockRestaurants(location.lat, location.lng));
+      const data = await res.json();
+      const elements = (data.elements as any[])
+        .filter(e => e.tags?.name && e.lat && e.lon)
+        .slice(0, 25);
+      if (elements.length > 0) {
+        setRestaurants(elements.map((el, idx) => ({
+          id: String(el.id),
+          name: el.tags.name,
+          lat: el.lat,
+          lng: el.lon,
+          status: statuses[idx % 3],
+          waitTime: waitTimes[idx % waitTimes.length],
+          cuisine: el.tags.cuisine?.replace(/_/g, " ") || "Restaurant",
+          address: el.tags["addr:street"] ? `${el.tags["addr:housenumber"] || ""} ${el.tags["addr:street"]}`.trim() : undefined,
+          openNow: idx % 4 !== 0, // simulate ~75% open
+        })));
+      } else {
+        setRestaurants(generateFallbackPlaces(lat, lng));
+      }
+    } catch {
+      setRestaurants(generateFallbackPlaces(lat, lng));
     }
   }, [deliveryRoute]);
 
+  const generateFallbackPlaces = (baseLat: number, baseLng: number): Canteen[] => {
+    const mocks = [
+      { lo: 0.003, la: 0.001, name: "Green Garden Cafe", cuisine: "vegetarian", status: "available" },
+      { lo: -0.005, la: 0.004, name: "Spice Route Restaurant", cuisine: "Indian", status: "medium-priority" },
+      { lo: 0.010, la: -0.007, name: "The Urban Kitchen", cuisine: "continental", status: "high-priority" },
+      { lo: 0.007, la: 0.013, name: "Sunrise Fast Food", cuisine: "fast food", status: "available" },
+      { lo: -0.013, la: -0.004, name: "Corner Brew & Bite", cuisine: "cafe", status: "medium-priority" },
+      { lo: 0.016, la: 0.003, name: "Tandoor Palace", cuisine: "Indian", status: "high-priority" },
+      { lo: -0.003, la: -0.010, name: "City Noodle Bar", cuisine: "Chinese", status: "available" },
+      { lo: -0.009, la: 0.016, name: "Grand Buffet House", cuisine: "buffet", status: "medium-priority" },
+      { lo: 0.020, la: -0.013, name: "Campus Canteen", cuisine: "canteen", status: "available" },
+    ];
+    return mocks.map((m, idx) => ({
+      id: `fb-${idx}`,
+      name: m.name,
+      lat: baseLat + m.la,
+      lng: baseLng + m.lo,
+      status: m.status,
+      waitTime: `${2 + idx * 2} min walk`,
+      cuisine: m.cuisine,
+      openNow: idx % 4 !== 0,
+    }));
+  };
+
   useEffect(() => {
     if (map && position && !deliveryRoute) {
-      fetchNearbyRestaurants(position, map);
+      fetchNearbyRestaurants(position);
     }
   }, [map, position, fetchNearbyRestaurants, deliveryRoute]);
 
@@ -230,10 +292,10 @@ export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps
         {deliveryRoute && (
           <>
             <Marker position={deliveryRoute.origin} title="Donor Location"
-              icon={{ path: window.google.maps.SymbolPath.CIRCLE, fillColor: '#10b981', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2, scale: 8 }} 
+              icon={{ path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z", fillColor: '#10b981', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2, scale: 1.5, anchor: new window.google.maps.Point(12, 22) }} 
             />
             <Marker position={deliveryRoute.destination} title="NGO Location"
-              icon={{ path: window.google.maps.SymbolPath.CIRCLE, fillColor: '#ef4444', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2, scale: 8 }} 
+              icon={{ path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z", fillColor: '#ef4444', fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2, scale: 1.5, anchor: new window.google.maps.Point(12, 22) }} 
             />
             {routePath.length > 0 && (
               <Polyline path={routePath} options={{ strokeColor: "#3b82f6", strokeOpacity: 0.8, strokeWeight: 6 }} />
@@ -248,30 +310,59 @@ export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps
           </>
         )}
 
+        {/* Heatmap is controlled imperatively via heatmapRef, no JSX needed */}
+
         {/* --- STANDARD CANTEEN MODE --- */}
-        {!deliveryRoute && restaurants.map(restaurant => (
-          <Marker
-            key={restaurant.id}
-            position={{ lat: restaurant.lat, lng: restaurant.lng }}
-            icon={{ path: window.google.maps.SymbolPath.CIRCLE, fillColor: '#10b981', fillOpacity: 1, strokeOpacity: 0.3, strokeWeight: 12, scale: 8 }}
-            onClick={() => {
-              setActiveMarker(restaurant.id);
-              onCanteenSelect?.(restaurant);
-            }}
-          >
-            {activeMarker === restaurant.id && (
-              <InfoWindow onCloseClick={() => setActiveMarker(null)}>
-                <div className="p-2 min-w-[200px] bg-white text-black rounded-lg shadow-xl">
-                  <h3 className="font-bold text-gray-900">{restaurant.name}</h3>
-                </div>
-              </InfoWindow>
-            )}
-          </Marker>
-        ))}
+        {!deliveryRoute && restaurants.map(restaurant => {
+          let color = '#059669'; // Darker Green (emerald-600)
+          if (restaurant.status === 'high-priority') color = '#dc2626'; // Darker Red (red-600)
+          if (restaurant.status === 'medium-priority') color = '#d97706'; // Darker Orange (amber-600)
+          
+          return (
+            <Marker
+              key={restaurant.id}
+              position={{ lat: restaurant.lat, lng: restaurant.lng }}
+              icon={{ 
+                path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z", 
+                fillColor: color, 
+                fillOpacity: 1, 
+                strokeColor: '#ffffff', 
+                strokeWeight: 2, 
+                scale: 1.5,
+                anchor: new window.google.maps.Point(12, 22)
+              }}
+              onClick={() => {
+                setActiveMarker(restaurant.id);
+                onCanteenSelect?.(restaurant);
+              }}
+            >
+              {activeMarker === restaurant.id && (
+                <InfoWindow onCloseClick={() => setActiveMarker(null)}>
+                  <div className="p-2 min-w-[200px] bg-white text-black rounded-lg shadow-xl">
+                    <h3 className="font-bold text-gray-900">{restaurant.name}</h3>
+                    <p className="text-sm font-medium mt-1" style={{ color }}>
+                      {restaurant.status === 'high-priority' ? 'Critical Action Required' : 
+                       restaurant.status === 'medium-priority' ? 'Pickup Pending' : 'Available for Pickup'}
+                    </p>
+                  </div>
+                </InfoWindow>
+              )}
+            </Marker>
+          );
+        })}
       </GoogleMap>
 
       {/* Floating Controls */}
       <div className="absolute bottom-6 right-6 z-[1000] flex flex-col gap-3">
+        {!deliveryRoute && (
+          <button 
+            onClick={() => setShowHeatmap(!showHeatmap)} 
+            className={`p-4 backdrop-blur-md rounded-full shadow-2xl transition-all text-white ${showHeatmap ? 'bg-red-500 hover:bg-red-600' : 'bg-[#1e1e1e]/90 hover:bg-[#2a2a2a]'}`}
+            title="Toggle Expiry Heatmap"
+          >
+            <Flame size={20} />
+          </button>
+        )}
         <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-4 bg-[#1e1e1e]/90 backdrop-blur-md rounded-full shadow-2xl hover:bg-[#2a2a2a] transition-all text-white"><span className="text-xl leading-none">{isDarkMode ? '☀️' : '🌙'}</span></button>
         {!deliveryRoute && <button onClick={() => map?.panTo(position!)} className="p-4 bg-[#1e1e1e]/90 backdrop-blur-md rounded-full shadow-2xl hover:bg-[#2a2a2a] transition-all text-white"><Navigation size={20} /></button>}
       </div>
