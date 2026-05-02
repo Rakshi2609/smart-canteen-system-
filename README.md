@@ -146,6 +146,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ```env
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+
 ```
 
 > ℹ️ The Google Maps key is **optional**. Map tiles and the restaurant finder (Overpass API) work without it. The key only enhances the Places API fallback.
