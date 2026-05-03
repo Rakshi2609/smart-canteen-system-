@@ -34,21 +34,24 @@
 - **Network Tab**: Verified partner list (Donors & NGOs) with approval/rejection controls
 - **AI Insights Tab**: Simulated AI-powered analytics on route optimization and expiry hotspots
 - Real-time toast notifications on order status changes
-- **State Persisted**: All donations are synced in real-time with a **MongoDB database**. Audit logs and user network data use `localStorage`.
+- **State Persisted**: All users, roles, donations, and impact metrics are synced in real-time with a **MongoDB database**. Audit logs are stored in `localStorage` for session history.
+- **Verification Workflow**: Admins have manual control over new partner registrations, with approval/rejection buttons and status tracking.
 
 ---
 
 ### 🥗 Donor Dashboard (`/admin?role=Donor`)
-- **Donate Tab**: Form to list surplus food with name, type (Veg/Non-Veg), quantity, cooked time, and spoilage window
-- **Active Donations Tab**: Live view of all listed food with countdown expiry timers, status badges, and edit/delete controls
-- New donations are instantly written to the **MongoDB database**, visible globally to Admin and NGO portals in real-time.
+- **Donate Tab**: Form to list surplus food with name, type (Veg/Non-Veg), quantity, cooked time, and spoilage window.
+- **My Impact**: Prominent card showing total meals donated, persisted in MongoDB.
+- **Active Donations Tab**: Live view of user-specific donations with status badges and edit/delete controls.
+- All donations are instantly written to the **MongoDB database**, visible globally to Admin and NGO portals in real-time.
 
 ---
 
 ### 🤝 NGO Dashboard (`/admin?role=NGO`)
-- **Live Rescue Tab**: Live feed of all available donations from Donors with accept button
-- **My Pickups Tab**: Accepted orders with a real OSRM-powered delivery route animation on the map
-- **Delivery Map**: Route drawn on an embedded Google Map using the free OSRM routing engine; animated 🛵 emoji rides the route in real-time
+- **Live Rescue Tab**: Live feed of all "Waiting" donations from nearby Donors.
+- **My Impact**: Prominent card showing total meals rescued/delivered by the NGO.
+- **My Pickups Tab**: NGO-specific accepted orders with a real OSRM-powered delivery route animation on the map.
+- **Delivery Map**: Route drawn on an embedded Google Map using the free OSRM routing engine; animated 🛵 emoji rides the route in real-time.
 
 ---
 
@@ -108,7 +111,7 @@ Fully informational — **only the Explore button navigates**. Sections include:
 | Map (Heatmap) | Google Maps Visualization Library |
 | QR Code | `react-qr-code` |
 | Icons | Lucide React |
-| State | React `useState` + MongoDB Backend |
+| State | MongoDB Backend + AuthContext |
 | Font | Inter (Google Fonts) |
 
 ---
