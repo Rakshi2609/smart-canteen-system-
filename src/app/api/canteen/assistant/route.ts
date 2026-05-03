@@ -1,8 +1,26 @@
 import { NextResponse } from "next/server";
+import { generateJson } from "@/lib/ai";
+
+type InventoryItem = {
+  name: string;
+  stock: number;
+  status: string;
+};
+
+type InsightsResponse = {
+  demandPrediction: number;
+  suggestedDish: string;
+  restockAlert: string;
+  wasteReduction: string;
+};
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as {
+      inventory: InventoryItem[];
+      activeOrders: number;
+      timeOfDay: string;
+    };
     const { inventory, activeOrders, timeOfDay } = body;
 
     // Construct the prompt for LLaMA 3
@@ -12,7 +30,7 @@ You are a smart canteen AI manager. Based on the current stock and active orders
 CURRENT STATE:
 Time of Day: ${timeOfDay}
 Inventory:
-${inventory.map((i: any) => `- ${i.name}: ${i.stock} portions (${i.status})`).join("\n")}
+${inventory.map((item) => `- ${item.name}: ${item.stock} portions (${item.status})`).join("\n")}
 
 Active Orders waiting: ${activeOrders}
 
@@ -27,37 +45,19 @@ Please output a JSON object with the following structure:
 Output ONLY valid JSON.
 `;
 
-    // Make request to local Ollama instance
-    const ollamaResponse = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama3",
-        prompt: prompt,
-        stream: false,
-        format: "json", // Forces JSON output in Ollama
-      }),
-    });
+    const insights = await generateJson(prompt);
 
-    if (!ollamaResponse.ok) {
-      throw new Error(`Failed to connect to local Ollama instance: ${ollamaResponse.statusText}`);
-    }
-
-    const data = await ollamaResponse.json();
-    let insights;
-    try {
-      insights = JSON.parse(data.response);
-    } catch (parseErr) {
-      throw new Error("Failed to parse AI response as JSON");
-    }
-
-    return NextResponse.json({ insights });
-  } catch (error: any) {
+    return NextResponse.json({ insights: insights as InsightsResponse });
+  } catch (error: unknown) {
     console.error("AI Insights Error:", error);
+    const message = error instanceof Error ? error.message : undefined;
+
     return NextResponse.json(
-      { error: error.message || "Failed to generate AI insights. Ensure Ollama is running locally with llama3 model." },
+      {
+        error:
+          message ||
+          "Failed to generate AI insights. Start Ollama locally or configure GROQ_API_KEY for fallback.",
+      },
       { status: 500 }
     );
   }

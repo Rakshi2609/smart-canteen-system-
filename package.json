@@ -10,7 +10,6 @@
   },
   "dependencies": {
     "@react-google-maps/api": "^2.20.8",
-    "firebase": "^12.12.1",
     "framer-motion": "^12.38.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.14.0",
