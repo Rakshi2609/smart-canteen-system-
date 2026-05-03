@@ -17,7 +17,7 @@ export default function Navbar() {
           <Link href="/support" className="flex items-center gap-2 text-lg font-bold text-pink-400 hover:text-pink-300 transition-colors bg-pink-500/10 px-4 py-2 rounded-xl">
             <span>Support ❤️</span>
           </Link>
-          <Link href="/admin" className="flex items-center gap-2 text-lg font-bold text-slate-300 hover:text-white transition-colors">
+          <Link href="/portals?type=Admin" className="flex items-center gap-2 text-lg font-bold text-slate-300 hover:text-white transition-colors">
             <LayoutDashboard size={22} />
             <span>Admin</span>
           </Link>
