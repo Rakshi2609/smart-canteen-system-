@@ -33,30 +33,33 @@
 - **Overview Tab**: Live global stats (meals saved, active orders, expiry alerts)
 - **Orders Tab**: Full global donation order management with status controls (`Waiting → Accepted → Delivered → Expired`)
 - **Network Tab**: Verified partner list (Donors & NGOs) with approval/rejection controls
-- **AI Insights Tab (Functional)**: Real-time analysis powered by **Ollama (llama3)**. Provides demand forecasting, restock alerts, and waste reduction strategy based on live platform data.
-- **State Persisted**: All orders, audit logs, and user network data are saved to `localStorage` and survive portal switching.
-- **Advanced Security**: Passcode validation enforced at both entry and dashboard levels.
+- **AI Insights Tab**: Simulated AI-powered analytics on route optimization and expiry hotspots
+- Real-time toast notifications on order status changes
+- **State Persisted**: All users, roles, donations, and impact metrics are synced in real-time with a **MongoDB database**. Audit logs are stored in `localStorage` for session history.
+- **Verification Workflow**: Admins have manual control over new partner registrations, with approval/rejection buttons and status tracking.
 
 ---
 
 ### 🥗 Donor Dashboard (`/admin?role=Donor`)
-- **Donate Tab**: Form to list surplus food with name, type (Veg/Non-Veg), quantity, cooked time, and spoilage window
-- **Active Donations Tab**: Live view of all listed food with countdown expiry timers, status badges, and edit/delete controls
-- New donations are instantly written to the **global shared state** visible to Admin and NGO portals
+- **Donate Tab**: Form to list surplus food with name, type (Veg/Non-Veg), quantity, cooked time, and spoilage window.
+- **My Impact**: Prominent card showing total meals donated, persisted in MongoDB.
+- **Active Donations Tab**: Live view of user-specific donations with status badges and edit/delete controls.
+- All donations are instantly written to the **MongoDB database**, visible globally to Admin and NGO portals in real-time.
 
 ---
 
 ### 🤝 NGO Dashboard (`/admin?role=NGO`)
-- **Live Rescue Tab**: Live feed of all available donations from Donors with accept button
-- **My Pickups Tab**: Accepted orders with a real OSRM-powered delivery route animation on the map
-- **Delivery Map**: Route drawn on an embedded Google Map using the free OSRM routing engine; animated 🛵 emoji rides the route in real-time
+- **Live Rescue Tab**: Live feed of all "Waiting" donations from nearby Donors.
+- **My Impact**: Prominent card showing total meals rescued/delivered by the NGO.
+- **My Pickups Tab**: NGO-specific accepted orders with a real OSRM-powered delivery route animation on the map.
+- **Delivery Map**: Route drawn on an embedded Google Map using the free OSRM routing engine; animated 🛵 emoji rides the route in real-time.
 
 ---
 
 ### 🗺️ Live Map (`/map`)
-**Restaurant Finder** — powered by **OpenStreetMap Overpass API** (free, no API key needed):
-- Fetches real restaurants, cafes, fast food, and canteens within 2.5km of the user's location
-- Falls back to curated mock data if outside mapped areas
+**Restaurant Finder** — powered by **AI (Groq / Ollama)**:
+- Generates 10 real (or highly realistic) food places (restaurants, cafes, canteens) within a 5km radius of the user's location based on their coordinates.
+- Falls back to curated mock data if the AI API fails or is unavailable.
 - **Color-coded teardrop markers**:
   - 🔴 Red = High Priority
   - 🟠 Orange = Medium Priority
@@ -105,12 +108,12 @@ Fully informational — **only the Explore button navigates**. Sections include:
 | Animations | Framer Motion |
 | AI Engine | Ollama (llama3) — Local Inference |
 | Map (Display) | Google Maps API + `@react-google-maps/api` |
-| Map (Restaurants) | OpenStreetMap Overpass API (FREE, no key) |
+| Map (Restaurants) | AI Generation via Groq or Ollama |
 | Map (Routing) | OSRM (FREE, open routing engine) |
 | Map (Heatmap) | Google Maps Visualization Library |
 | QR Code | `react-qr-code` |
 | Icons | Lucide React |
-| State | React `useState` + `localStorage` persistence |
+| State | MongoDB Backend + AuthContext |
 | Font | Inter (Google Fonts) |
 
 ---
@@ -155,7 +158,7 @@ GROQ_API_KEY=your_groq_api_key_here
 # GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
-> ℹ️ The Google Maps key is **optional**. Map tiles and the restaurant finder (Overpass API) work without it. The key only enhances the Places API fallback.
+> ℹ️ The Google Maps key is **optional**. Map tiles work without it. The AI API handles finding the restaurants.
 >
 > The AI routes try local Ollama first. If Ollama is unavailable and `GROQ_API_KEY` is set, they automatically fall back to Groq.
 
@@ -183,8 +186,8 @@ src/
 
 ## 🗺️ Roadmap / Next Steps
 
-- [ ] **Firebase/Supabase integration** — replace `localStorage` with a real persistent database
-- [ ] **NextAuth authentication** — real login instead of mock credentials
+- [x] **MongoDB integration** — Real local backend for Donations, Auth (Bcrypt/JWT).
+- [ ] **NextAuth authentication** — For social logins and more advanced strategies.
 - [ ] **Razorpay/Stripe integration** — real webhook for UPI payment confirmation
 - [ ] **Push notifications** — notify NGOs when new food is listed nearby
 - [ ] **Mobile app** — React Native companion app for volunteers

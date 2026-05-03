@@ -24,18 +24,31 @@ export default function Navbar() {
           </Link>
           {user ? (
             <>
-              <Link href="/admin" className="flex items-center gap-2 text-lg font-bold text-slate-300 hover:text-white transition-colors">
+              <Link href={user.role === 'Admin' ? "/admin" : `/admin?role=${user.role}`} className="flex items-center gap-2 text-lg font-bold text-slate-300 hover:text-white transition-colors">
                 <LayoutDashboard size={22} />
-                <span>Admin</span>
+                <span>{user.role === 'Admin' ? 'Admin' : 'Portal'}</span>
               </Link>
               <div className="flex items-center gap-4 border-l border-white/20 pl-6 ml-2">
-                <div className="flex items-center gap-2 text-white">
-                  <UserIcon size={18} className="text-primary" />
-                  <span className="font-medium">{user.name}</span>
+                <div className="flex flex-col items-end">
+                  <div className="flex items-center gap-2 text-white">
+                    <div className="relative">
+                      <UserIcon size={18} className="text-primary" />
+                      {user.status === "Pending Approval" && (
+                        <span className="absolute -top-1 -right-1 w-2 h-2 bg-amber-500 rounded-full animate-pulse border border-black" />
+                      )}
+                    </div>
+                    <span className="font-medium">{user.name}</span>
+                  </div>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${user.role === 'Admin' ? 'bg-primary/20 text-primary' : user.role === 'Donor' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                    {user.role}
+                  </span>
                 </div>
                 <button 
-                  onClick={logout}
-                  className="flex items-center gap-2 text-sm font-bold text-red-400 hover:text-red-300 transition-colors"
+                  onClick={() => {
+                    logout();
+                    window.location.href = "/";
+                  }}
+                  className="flex items-center gap-2 text-sm font-bold text-red-400 hover:text-red-300 transition-colors ml-2"
                 >
                   <LogOut size={18} />
                   <span>Logout</span>

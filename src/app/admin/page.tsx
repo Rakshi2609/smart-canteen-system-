@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Lock, Settings, BarChart3, Package, Users, Brain, Trash2, Edit2, Plus, RefreshCw, Loader2, Bell, X, Check, Heart, MapPin, Clock, ArrowRight, Navigation, CheckCircle2, AlertTriangle, ShieldCheck, History, ListOrdered, FileText } from "lucide-react";
+import { Lock, Settings, BarChart3, Package, Users, Brain, Trash2, Edit2, Plus, RefreshCw, Loader2, Bell, X, Check, Heart, MapPin, Clock, ArrowRight, Navigation, CheckCircle2, AlertTriangle, ShieldCheck, History, ListOrdered, FileText, Utensils } from "lucide-react";
 import LiveMap from "@/components/LiveMap";
+import { useAuth } from "@/contexts/AuthContext";
 
 type Role = "Admin" | "Donor" | "NGO" | null;
 type AdminTab = "overview" | "network" | "operations" | "audit" | "ai";
@@ -27,6 +28,8 @@ type UnifiedOrder = {
   distance: string;
   status: OrderStatus;
   volunteerName?: string;
+  donorId?: string;
+  ngoId?: string;
   donorLocation?: LocationPoint;
   ngoLocation?: LocationPoint;
 };
@@ -377,6 +380,7 @@ function AIInsightsPanel({
 // =================== END AI INSIGHTS PANEL ===================
 
 export default function UnifiedPortal() {
+  const { user, refreshUser } = useAuth();
   const [role, setRole] = useState<Role>(null);
   const [isMounted, setIsMounted] = useState(false);
   
@@ -405,32 +409,48 @@ export default function UnifiedPortal() {
   
   const [toastMessage, setToastMessage] = useState<{title: string, desc: string} | null>(null);
 
-  // --- GLOBAL SIMULATED STATE ---
-  const defaultUsersNetwork = [
-    { id: "U-882", name: "Taj West End", role: "Donor", status: "Verified", totalImpact: 1450 },
-    { id: "U-104", name: "Robin Hood Army", role: "NGO", status: "Verified", totalImpact: 8900 },
-    { id: "U-991", name: "Local Bakery Corp", role: "Donor", status: "Pending Approval", totalImpact: 0 },
-    { id: "U-205", name: "Bangalore Food Bank", role: "NGO", status: "Verified", totalImpact: 3240 },
-  ];
-  const [usersNetwork, setUsersNetwork] = useState<typeof defaultUsersNetwork>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('rf_usersNetwork');
-      if (saved) return JSON.parse(saved);
-    }
-    return defaultUsersNetwork;
-  });
+  interface UserNetworkItem {
+    id: string;
+    name: string;
+    role: "Admin" | "Donor" | "NGO";
+    status: "Pending Approval" | "Verified" | "Rejected" | "Suspended";
+    totalImpact: number;
+  }
+  const [usersNetwork, setUsersNetwork] = useState<UserNetworkItem[]>([]);
 
-  const defaultOrders: UnifiedOrder[] = [
-    { id: "R-101", orderType: "Donation", foodName: "Mixed Veg Buffet", foodType: "Veg", quantity: 30, cookedTime: "10:30 AM", expiryTime: Date.now() + 20 * 60000, distance: "1.2 km", status: "Waiting", donorLocation: { lat: 12.9716, lng: 77.5946, address: "MG Road, Bangalore" } },
-    { id: "R-102", orderType: "Donation", foodName: "Chicken Biryani Bulk", foodType: "Non-Veg", quantity: 50, cookedTime: "11:00 AM", expiryTime: Date.now() + 45 * 60000, distance: "3.4 km", status: "Waiting", donorLocation: { lat: 12.9352, lng: 77.6245, address: "Koramangala, Bangalore" } }
-  ];
-  const [orders, setOrders] = useState<UnifiedOrder[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('rf_orders');
-      if (saved) return JSON.parse(saved);
+  const fetchUsersNetwork = async () => {
+    try {
+      const res = await fetch("/api/users");
+      const data = await res.json();
+      if (Array.isArray(data)) setUsersNetwork(data);
+    } catch (e) {
+      console.error(e);
     }
-    return defaultOrders;
-  });
+  };
+
+  useEffect(() => {
+    fetchUsersNetwork();
+    const interval = setInterval(fetchUsersNetwork, 30000); // refresh every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  const [orders, setOrders] = useState<UnifiedOrder[]>([]);
+  
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch("/api/donations");
+      const data = await res.json();
+      if (Array.isArray(data)) setOrders(data);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 10000); // refresh every 10s
+    return () => clearInterval(interval);
+  }, []);
 
   const defaultAuditLogs: AuditLog[] = [
     { id: "L-001", time: new Date().toLocaleTimeString(), action: "SYSTEM_START", role: "System", details: "Unified Orders State Initialized" }
@@ -451,17 +471,14 @@ export default function UnifiedPortal() {
     return [];
   });
 
-  const [mealsSaved, setMealsSaved] = useState(() => {
+  const [mealsSaved, setMealsSaved] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('rf_mealsSaved');
-      if (saved) return JSON.parse(saved);
+      if (saved) return Number(JSON.parse(saved));
     }
     return 142;
   });
 
-  // Save to localStorage on change
-  useEffect(() => { localStorage.setItem('rf_usersNetwork', JSON.stringify(usersNetwork)); }, [usersNetwork]);
-  useEffect(() => { localStorage.setItem('rf_orders', JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem('rf_auditLogs', JSON.stringify(auditLogs)); }, [auditLogs]);
   useEffect(() => { localStorage.setItem('rf_globalNotifications', JSON.stringify(globalNotifications)); }, [globalNotifications]);
   useEffect(() => { localStorage.setItem('rf_mealsSaved', JSON.stringify(mealsSaved)); }, [mealsSaved]);
@@ -484,14 +501,27 @@ export default function UnifiedPortal() {
       const now = Date.now();
       setCurrentTime(now);
       
-      setOrders(prev => prev.map(order => {
-        if (order.status === "Waiting" && order.expiryTime <= now) {
-          addAuditLog("EXPIRED", "System", `Donation ${order.id} (${order.foodName}) automatically expired.`);
-          setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Alert: Your donation ${order.foodName} has expired without pickup.`, read: false}, ...n]);
-          return { ...order, status: "Expired" };
-        }
-        return order;
-      }));
+      setOrders(prev => {
+        let changed = false;
+        const newOrders = prev.map(order => {
+          if (order.status === "Waiting" && order.expiryTime <= now) {
+            changed = true;
+            addAuditLog("EXPIRED", "System", `Donation ${order.id} (${order.foodName}) automatically expired.`);
+            setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Alert: Your donation ${order.foodName} has expired without pickup.`, read: false}, ...n]);
+            
+            // Sync with backend
+            fetch(`/api/donations/${order.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: "Expired" })
+            }).catch(e => console.error(e));
+
+            return { ...order, status: "Expired" as OrderStatus };
+          }
+          return order;
+        });
+        return changed ? newOrders : prev;
+      });
     }, 1000); // UI updates every second
     return () => clearInterval(timer);
   }, []);
@@ -596,11 +626,20 @@ export default function UnifiedPortal() {
 
   // ================= DONOR VIEW =================
   const renderDonor = () => {
-    const donorOrders = orders.filter(o => o.orderType === "Donation");
+    const donorOrders = orders.filter(o => o.orderType === "Donation" && o.donorId === user?.id);
     const unreadCount = globalNotifications.filter(n => n.role === "Donor" && !n.read).length;
+    const myTotalImpact = user?.totalImpact || 0;
     
     return (
-      <div className="flex-1 flex gap-6 h-[calc(100vh-64px)] px-6 pb-6">
+      <div className="flex-1 flex flex-col h-[calc(100vh-64px)]">
+        {user?.status === "Pending Approval" && (
+          <div className="mx-6 mt-2 bg-amber-500/20 border border-amber-500/50 p-3 rounded-xl text-center">
+            <p className="text-amber-400 text-sm font-bold flex items-center justify-center gap-2">
+              <AlertTriangle size={16} /> Your account is pending verification by an Admin. Some features may be restricted.
+            </p>
+          </div>
+        )}
+        <div className="flex-1 flex gap-6 px-6 pb-6 overflow-hidden mt-4">
         <div className="w-64 bg-[#161616] border border-white/5 rounded-2xl flex flex-col p-4 shadow-2xl">
           <div className="flex items-center gap-3 mb-8 px-2">
             <Package className="text-emerald-500" size={28}/>
@@ -622,7 +661,24 @@ export default function UnifiedPortal() {
           <button onClick={() => window.location.href = '/portals'} className="mt-auto flex items-center gap-3 px-4 py-3 text-red-400 hover:bg-red-500/10 rounded-xl transition-all"><X size={18}/> Exit Portal</button>
         </div>
 
-        <div className="flex-1 bg-[#161616] border border-white/5 rounded-2xl p-8 overflow-y-auto shadow-xl relative">
+        <div className="flex-1 bg-[#161616] border border-white/5 rounded-2xl p-8 overflow-y-auto shadow-xl relative flex flex-col">
+          <div className="flex justify-between items-center mb-8 shrink-0">
+            <div>
+              <h2 className="text-3xl font-bold text-white">Welcome, {user?.name}</h2>
+              <p className="text-slate-400 mt-1">Manage your surplus food donations and track impact.</p>
+            </div>
+            <div className="bg-emerald-500/10 border border-emerald-500/20 px-6 py-3 rounded-2xl flex items-center gap-4">
+              <div className="w-12 h-12 bg-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-500">
+                <Heart size={24} className="fill-emerald-500" />
+              </div>
+              <div>
+                <p className="text-xs text-emerald-500 font-bold uppercase tracking-wider">Your Impact</p>
+                <p className="text-2xl font-bold text-white">{myTotalImpact} Meals</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto">
           {donorTab === "donate" && (
             <div className="max-w-lg mx-auto">
               <h2 className="text-3xl font-bold text-white mb-2">Publish Surplus Food</h2>
@@ -670,15 +726,24 @@ export default function UnifiedPortal() {
                   const newOrder: UnifiedOrder = {
                     id: reqId, orderType: "Donation", foodType: donorForm.type, foodName: donorForm.name, quantity: donorForm.quantity,
                     cookedTime: donorForm.time, expiryTime: Date.now() + donorForm.spoilageMins * 60000, distance: "0.0 km", status: "Waiting",
-                    donorLocation
+                    donorLocation,
+                    donorId: user?.id
                   };
                   
                   // ONE unified update
-                  setOrders(prev => [newOrder, ...prev]);
-                  
-                  addAuditLog("DONATION_CREATED", "Donor", `Created donation ${reqId} for ${donorForm.name} at ${donorLocation.address}`);
-                  notify("Success!", "Donation published globally with location.");
-                  setDonorTab("history");
+                  fetch('/api/donations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newOrder)
+                  }).then(() => {
+                    setOrders(prev => [newOrder, ...prev]);
+                    addAuditLog("DONATION_CREATED", "Donor", `Created donation ${reqId} for ${donorForm.name} at ${donorLocation.address}`);
+                    notify("Success!", "Donation published globally with location.");
+                    setDonorTab("history");
+                  }).catch(e => {
+                    console.error(e);
+                    notify("Error", "Failed to publish donation.");
+                  });
                 }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl mt-4 flex items-center justify-center gap-2">
                   <CheckCircle2 size={20}/> Publish Donation
                 </button>
@@ -768,10 +833,16 @@ export default function UnifiedPortal() {
                     </button>
                   </div>
                   <button onClick={() => {
-                    setOrders(prev => prev.map(o => o.id === editingOrder.id ? editingOrder : o));
-                    addAuditLog("DONATION_EDITED", "Donor", `Edited donation ${editingOrder.id}`);
-                    notify("Updated", "Donation details saved.");
-                    setEditingOrder(null);
+                    fetch(`/api/donations/${editingOrder.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(editingOrder)
+                    }).then(() => {
+                      setOrders(prev => prev.map(o => o.id === editingOrder.id ? editingOrder : o));
+                      addAuditLog("DONATION_EDITED", "Donor", `Edited donation ${editingOrder.id}`);
+                      notify("Updated", "Donation details saved.");
+                      setEditingOrder(null);
+                    }).catch(e => console.error(e));
                   }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl mt-4 transition-colors">
                     Save Changes
                   </button>
@@ -779,10 +850,12 @@ export default function UnifiedPortal() {
               </div>
             </div>
           )}
+          </div>
         </div>
       </div>
-    );
-  };
+    </div>
+);
+};
 
   // ================= NGO VIEW =================
   const renderNGO = () => {
@@ -795,7 +868,15 @@ export default function UnifiedPortal() {
     });
 
     return (
-      <div className="flex-1 flex gap-6 h-[calc(100vh-64px)] px-6 pb-6 relative">
+      <div className="flex-1 flex flex-col h-[calc(100vh-64px)]">
+        {user?.status === "Pending Approval" && (
+          <div className="mx-6 mt-2 bg-amber-500/20 border border-amber-500/50 p-3 rounded-xl text-center">
+            <p className="text-amber-400 text-sm font-bold flex items-center justify-center gap-2">
+              <AlertTriangle size={16} /> Your account is pending verification by an Admin. Some features may be restricted.
+            </p>
+          </div>
+        )}
+        <div className="flex-1 flex gap-6 px-6 pb-6 relative mt-4">
         <div className="w-64 bg-[#161616] border border-white/5 rounded-2xl flex flex-col p-4 shadow-2xl">
           <div className="flex items-center gap-3 mb-8 px-2">
             <Heart className="text-amber-500" size={28}/>
@@ -811,15 +892,30 @@ export default function UnifiedPortal() {
         </div>
 
         <div className="flex-1 flex flex-col overflow-hidden bg-[#161616] border border-white/5 rounded-2xl shadow-xl">
-          {ngoTab === "live" && (
-            <>
-              <div className="p-5 border-b border-white/5 bg-gradient-to-r from-amber-500/10 to-transparent flex justify-between items-center z-10 shrink-0">
-                <h2 className="text-xl font-bold text-white flex items-center gap-2">Live Rescue Routing</h2>
-                <div className="flex items-center gap-3 px-5 py-2 bg-amber-500/20 border border-amber-500/30 rounded-full">
-                  <Heart size={18} className="text-amber-400 fill-amber-400" />
-                  <span className="font-bold text-amber-400">Platform Meals Saved: {mealsSaved}</span>
+          <div className="p-5 border-b border-white/5 bg-gradient-to-r from-amber-500/10 to-transparent flex justify-between items-center z-10 shrink-0">
+            <div>
+              <h2 className="text-xl font-bold text-white flex items-center gap-2">Live Rescue Routing</h2>
+              <p className="text-xs text-slate-400">Rescue available food within your radius.</p>
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-3 px-4 py-2 bg-black/40 border border-white/10 rounded-xl">
+                <div className="w-8 h-8 bg-amber-500/20 rounded-lg flex items-center justify-center text-amber-500">
+                  <Utensils size={16} />
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">Rescued</p>
+                  <p className="text-sm font-bold text-white">{user?.totalImpact || 0}</p>
                 </div>
               </div>
+              <div className="flex items-center gap-3 px-5 py-2 bg-amber-500/20 border border-amber-500/30 rounded-full">
+                <Heart size={18} className="text-amber-400 fill-amber-400" />
+                <span className="font-bold text-amber-400">Total Saved: {mealsSaved}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {ngoTab === "live" && (
+              <>
               {/* Removed inline map to prevent congestion */}
               <div className="flex-1 overflow-y-auto p-6 z-10">
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -872,7 +968,7 @@ export default function UnifiedPortal() {
             <div className="p-8">
               <h2 className="text-2xl font-bold text-white mb-6">My Assigned Deliveries</h2>
               <div className="space-y-4">
-                {donationOrders.filter(r => r.status === "Pickup Assigned" && r.volunteerName === "You (NGO)").map(req => (
+                {donationOrders.filter(r => r.status === "Pickup Assigned" && (r.ngoId === user?.id || r.volunteerName === "You (NGO)")).map(req => (
                   <div key={req.id} className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-2xl flex justify-between items-center">
                     <div>
                       <h3 className="text-xl font-bold text-emerald-400">{req.foodName}</h3>
@@ -886,11 +982,18 @@ export default function UnifiedPortal() {
                         <MapPin size={16}/> Track Route
                       </button>
                       <button onClick={() => {
-                        setOrders(prev => prev.map(o => o.id === req.id ? {...o, status: "Completed"} : o));
-                        if(activeRouteOrder?.id === req.id) setActiveRouteOrder(null);
-                        addAuditLog("PICKUP_COMPLETED", "NGO", `Delivery completed for ${req.id}`);
-                        setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Your donation ${req.foodName} was successfully picked up!`, read: false}, ...n]);
-                        notify("Completed", "Food successfully delivered!");
+                        fetch(`/api/donations/${req.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ status: "Completed" })
+                        }).then(() => {
+                          setOrders(prev => prev.map(o => o.id === req.id ? {...o, status: "Completed"} : o));
+                          if(activeRouteOrder?.id === req.id) setActiveRouteOrder(null);
+                          addAuditLog("PICKUP_COMPLETED", "NGO", `Delivery completed for ${req.id}`);
+                          refreshUser();
+                          setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Your donation ${req.foodName} was successfully picked up!`, read: false}, ...n]);
+                          notify("Completed", "Food successfully delivered!");
+                        }).catch(e => console.error(e));
                       }} className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold transition-colors">Complete Delivery</button>
                     </div>
                   </div>
@@ -913,16 +1016,23 @@ export default function UnifiedPortal() {
                    <label className="block text-sm font-medium text-slate-400 mb-2">NGO / Drop-off Address</label>
                    <AddressSearch placeholder="Type your address..." onSelect={(loc) => {
                      // Proceed to accept
-                     const updatedOrder = {...acceptingOrder, status: "Pickup Assigned" as OrderStatus, volunteerName: "You (NGO)", ngoLocation: loc};
-                     setOrders(prev => prev.map(o => o.id === acceptingOrder.id ? updatedOrder : o));
-                     setMealsSaved(prev => prev + acceptingOrder.quantity);
-                     addAuditLog("PICKUP_ACCEPTED", "NGO", `NGO assigned to ${acceptingOrder.id}. Routing to ${loc.address}`);
-                     setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `NGO accepted your pickup! En-route to ${loc.address}.`, read: false}, ...n]);
+                     const updatedOrder = { ...acceptingOrder, status: "Pickup Assigned" as OrderStatus, volunteerName: user?.name || "You (NGO)", ngoLocation: loc, ngoId: user?.id };
                      
-                     notify("Route Calculated!", "Pickup assigned. OSRM routing active.");
-                     setAcceptingOrder(null);
-                     setNgoTab("pickups");
-                     setViewingMapRoute(updatedOrder);
+                     fetch(`/api/donations/${acceptingOrder.id}`, {
+                       method: 'PUT',
+                       headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify(updatedOrder)
+                     }).then(() => {
+                       setOrders(prev => prev.map(o => o.id === acceptingOrder.id ? updatedOrder : o));
+                       setMealsSaved(prev => prev + acceptingOrder.quantity);
+                       addAuditLog("PICKUP_ACCEPTED", "NGO", `NGO assigned to ${acceptingOrder.id}. Routing to ${loc.address}`);
+                       setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `NGO accepted your pickup! En-route to ${loc.address}.`, read: false}, ...n]);
+                       
+                       notify("Route Calculated!", "Pickup assigned. OSRM routing active.");
+                       setAcceptingOrder(null);
+                       setNgoTab("pickups");
+                       setViewingMapRoute(updatedOrder);
+                     }).catch(e => console.error(e));
                    }} />
                 </div>
               </div>
@@ -962,9 +1072,11 @@ export default function UnifiedPortal() {
           </div>
         )}
 
+        </div>
       </div>
-    );
-  };
+    </div>
+);
+};
 
   // ================= ADMIN VIEW =================
   const renderAdmin = () => {
@@ -1036,9 +1148,15 @@ export default function UnifiedPortal() {
                              <p className="text-xs text-slate-500">{user.role}</p>
                            </div>
                            <button onClick={() => {
-                             setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
-                             notify("Verified", `${user.name} is now active.`);
-                             addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
+                             fetch(`/api/users/${user.id}`, {
+                               method: 'PUT',
+                               headers: { 'Content-Type': 'application/json' },
+                               body: JSON.stringify({ status: "Verified" })
+                             }).then(() => {
+                               setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
+                               notify("Verified", `${user.name} is now active.`);
+                               addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
+                             }).catch(e => console.error(e));
                            }} className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-bold hover:bg-primary/80 transition-colors">Approve</button>
                          </div>
                        ))
@@ -1084,15 +1202,27 @@ export default function UnifiedPortal() {
                          <div className="flex flex-col gap-2 w-32">
                            {user.status === "Pending Approval" ? (
                              <button onClick={() => {
-                               setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
-                               notify("Partner Verified", `${user.name} can now access the platform.`);
-                               addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
+                               fetch(`/api/users/${user.id}`, {
+                                 method: 'PUT',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ status: "Verified" })
+                               }).then(() => {
+                                 setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
+                                 notify("Partner Verified", `${user.name} can now access the platform.`);
+                                 addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
+                               }).catch(e => console.error(e));
                              }} className="bg-primary hover:bg-primary/90 text-white text-xs py-2 rounded-lg font-bold transition-colors w-full">Verify Partner</button>
                            ) : user.status === "Verified" ? (
                              <button onClick={() => {
-                               setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Suspended"} : u));
-                               notify("Suspended", `${user.name} access revoked.`);
-                               addAuditLog("SUSPENDED_PARTNER", "Admin", `Suspended partner: ${user.name}`);
+                               fetch(`/api/users/${user.id}`, {
+                                 method: 'PUT',
+                                 headers: { 'Content-Type': 'application/json' },
+                                 body: JSON.stringify({ status: "Suspended" })
+                               }).then(() => {
+                                 setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Suspended"} : u));
+                                 notify("Suspended", `${user.name} access revoked.`);
+                                 addAuditLog("SUSPENDED_PARTNER", "Admin", `Suspended partner: ${user.name}`);
+                               }).catch(e => console.error(e));
                              }} className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs py-2 rounded-lg font-bold transition-colors w-full">Suspend Access</button>
                            ) : (
                              <button onClick={() => {

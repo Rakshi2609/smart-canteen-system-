@@ -40,9 +40,15 @@ export default function MapPage() {
     });
   };
 
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
   const handleCheckIn = (id: string) => {
     setCheckedIn(id);
-    setTimeout(() => setCheckedIn(null), 3000);
+    setToastMessage("Yes, we have informed the restaurant!");
+    setTimeout(() => {
+      setCheckedIn(null);
+      setToastMessage(null);
+    }, 4000);
   };
 
   const handleShare = (loc: Canteen) => {
@@ -59,6 +65,12 @@ export default function MapPage() {
 
   return (
     <div className="flex-1 flex px-6 pb-6 gap-6 h-[calc(100vh-64px)]">
+      {toastMessage && (
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[1000] bg-emerald-500 text-white px-6 py-3 rounded-full shadow-2xl font-bold flex items-center gap-2 animate-in slide-in-from-top-4">
+          <CheckCircle2 size={20} />
+          {toastMessage}
+        </div>
+      )}
       {/* Map Section */}
       <div className="flex-1 relative rounded-2xl overflow-hidden glass-panel border border-white/5 shadow-2xl">
         <div className="absolute top-6 left-6 z-10 bg-black/80 backdrop-blur-md border border-white/10 p-4 rounded-xl shadow-2xl max-w-xs pointer-events-none">
@@ -183,17 +195,24 @@ export default function MapPage() {
               {/* Check-in Button */}
               <button
                 onClick={() => handleCheckIn(selectedLocation.id)}
-                className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all ${
-                  checkedIn === selectedLocation.id
+                className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all ${checkedIn === selectedLocation.id
                     ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/25"
                     : "bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
-                }`}
+                  }`}
               >
                 {checkedIn === selectedLocation.id ? (
                   <><CheckCircle2 size={18} /> Checked In! 🎉</>
                 ) : (
                   <><MapPin size={18} /> Check In Here</>
                 )}
+              </button>
+
+              {/* Get Directions Button */}
+              <button
+                onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedLocation.lat},${selectedLocation.lng}`, '_blank')}
+                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all bg-white/10 hover:bg-white/20 text-white shadow-lg"
+              >
+                <Navigation size={18} /> Get Directions
               </button>
 
               <p className="text-xs text-center text-slate-500">

@@ -34,7 +34,7 @@ export default function LoginPage() {
       }
 
       login(data.user, data.token);
-      router.push("/");
+      router.push(data.user.role ? `/admin?role=${data.user.role}` : "/");
     } catch (err: any) {
       setError(err.message);
     } finally {
