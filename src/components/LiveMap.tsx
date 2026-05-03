@@ -198,42 +198,35 @@ export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps
   const fetchNearbyRestaurants = useCallback(async (location: {lat: number, lng: number}) => {
     if (deliveryRoute) return;
     const { lat, lng } = location;
-    const radius = 2500;
-    const query = `
-      [out:json][timeout:15];
-      (
-        node["amenity"~"restaurant|cafe|fast_food|food_court|canteen|bar|pub"](around:${radius},${lat},${lng});
-        way["amenity"~"restaurant|cafe|fast_food|food_court|canteen|bar|pub"](around:${radius},${lat},${lng});
-      );
-      out body;
-    `;
+    
     const statuses = ["available", "medium-priority", "high-priority"];
     const waitTimes = ["2 min walk", "5 min walk", "8 min walk", "12 min walk", "3 min walk"];
+    
     try {
-      const res = await fetch(`https://overpass-api.de/api/interpreter`, {
+      const res = await fetch(`/api/canteen/nearby`, {
         method: "POST",
-        body: query,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat, lng }),
       });
+      
       const data = await res.json();
-      const elements = (data.elements as any[])
-        .filter(e => e.tags?.name && e.lat && e.lon)
-        .slice(0, 25);
-      if (elements.length > 0) {
-        setRestaurants(elements.map((el, idx) => ({
-          id: String(el.id),
-          name: el.tags.name,
-          lat: el.lat,
-          lng: el.lon,
+      
+      if (data.places && data.places.length > 0) {
+        setRestaurants(data.places.map((place: any, idx: number) => ({
+          id: `ai-${idx}-${Math.random().toString(36).substr(2, 9)}`,
+          name: place.name,
+          lat: place.lat,
+          lng: place.lng,
           status: statuses[idx % 3],
           waitTime: waitTimes[idx % waitTimes.length],
-          cuisine: el.tags.cuisine?.replace(/_/g, " ") || "Restaurant",
-          address: el.tags["addr:street"] ? `${el.tags["addr:housenumber"] || ""} ${el.tags["addr:street"]}`.trim() : undefined,
+          cuisine: place.cuisine || "Restaurant",
           openNow: idx % 4 !== 0, // simulate ~75% open
         })));
       } else {
         setRestaurants(generateFallbackPlaces(lat, lng));
       }
-    } catch {
+    } catch (error) {
+      console.error("Failed to fetch AI places:", error);
       setRestaurants(generateFallbackPlaces(lat, lng));
     }
   }, [deliveryRoute]);
