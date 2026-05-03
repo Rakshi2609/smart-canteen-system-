@@ -195,11 +195,10 @@ export default function MapPage() {
               {/* Check-in Button */}
               <button
                 onClick={() => handleCheckIn(selectedLocation.id)}
-                className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all ${
-                  checkedIn === selectedLocation.id
+                className={`w-full flex items-center justify-center gap-2 py-3.5 rounded-xl font-bold transition-all ${checkedIn === selectedLocation.id
                     ? "bg-emerald-500 text-white shadow-lg shadow-emerald-500/25"
                     : "bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
-                }`}
+                  }`}
               >
                 {checkedIn === selectedLocation.id ? (
                   <><CheckCircle2 size={18} /> Checked In! 🎉</>
