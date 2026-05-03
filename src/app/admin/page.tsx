@@ -146,17 +146,23 @@ export default function UnifiedPortal() {
     return defaultUsersNetwork;
   });
 
-  const defaultOrders: UnifiedOrder[] = [
-    { id: "R-101", orderType: "Donation", foodName: "Mixed Veg Buffet", foodType: "Veg", quantity: 30, cookedTime: "10:30 AM", expiryTime: Date.now() + 20 * 60000, distance: "1.2 km", status: "Waiting", donorLocation: { lat: 12.9716, lng: 77.5946, address: "MG Road, Bangalore" } },
-    { id: "R-102", orderType: "Donation", foodName: "Chicken Biryani Bulk", foodType: "Non-Veg", quantity: 50, cookedTime: "11:00 AM", expiryTime: Date.now() + 45 * 60000, distance: "3.4 km", status: "Waiting", donorLocation: { lat: 12.9352, lng: 77.6245, address: "Koramangala, Bangalore" } }
-  ];
-  const [orders, setOrders] = useState<UnifiedOrder[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('rf_orders');
-      if (saved) return JSON.parse(saved);
+  const [orders, setOrders] = useState<UnifiedOrder[]>([]);
+  
+  const fetchOrders = async () => {
+    try {
+      const res = await fetch("/api/donations");
+      const data = await res.json();
+      if (Array.isArray(data)) setOrders(data);
+    } catch (e) {
+      console.error(e);
     }
-    return defaultOrders;
-  });
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 10000); // refresh every 10s
+    return () => clearInterval(interval);
+  }, []);
 
   const defaultAuditLogs: AuditLog[] = [
     { id: "L-001", time: new Date().toLocaleTimeString(), action: "SYSTEM_START", role: "System", details: "Unified Orders State Initialized" }
@@ -177,17 +183,15 @@ export default function UnifiedPortal() {
     return [];
   });
 
-  const [mealsSaved, setMealsSaved] = useState(() => {
+  const [mealsSaved, setMealsSaved] = useState<number>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('rf_mealsSaved');
-      if (saved) return JSON.parse(saved);
+      if (saved) return Number(JSON.parse(saved));
     }
     return 142;
   });
 
-  // Save to localStorage on change
   useEffect(() => { localStorage.setItem('rf_usersNetwork', JSON.stringify(usersNetwork)); }, [usersNetwork]);
-  useEffect(() => { localStorage.setItem('rf_orders', JSON.stringify(orders)); }, [orders]);
   useEffect(() => { localStorage.setItem('rf_auditLogs', JSON.stringify(auditLogs)); }, [auditLogs]);
   useEffect(() => { localStorage.setItem('rf_globalNotifications', JSON.stringify(globalNotifications)); }, [globalNotifications]);
   useEffect(() => { localStorage.setItem('rf_mealsSaved', JSON.stringify(mealsSaved)); }, [mealsSaved]);
@@ -210,14 +214,27 @@ export default function UnifiedPortal() {
       const now = Date.now();
       setCurrentTime(now);
       
-      setOrders(prev => prev.map(order => {
-        if (order.status === "Waiting" && order.expiryTime <= now) {
-          addAuditLog("EXPIRED", "System", `Donation ${order.id} (${order.foodName}) automatically expired.`);
-          setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Alert: Your donation ${order.foodName} has expired without pickup.`, read: false}, ...n]);
-          return { ...order, status: "Expired" };
-        }
-        return order;
-      }));
+      setOrders(prev => {
+        let changed = false;
+        const newOrders = prev.map(order => {
+          if (order.status === "Waiting" && order.expiryTime <= now) {
+            changed = true;
+            addAuditLog("EXPIRED", "System", `Donation ${order.id} (${order.foodName}) automatically expired.`);
+            setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Alert: Your donation ${order.foodName} has expired without pickup.`, read: false}, ...n]);
+            
+            // Sync with backend
+            fetch(`/api/donations/${order.id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status: "Expired" })
+            }).catch(e => console.error(e));
+
+            return { ...order, status: "Expired" as OrderStatus };
+          }
+          return order;
+        });
+        return changed ? newOrders : prev;
+      });
     }, 1000); // UI updates every second
     return () => clearInterval(timer);
   }, []);
@@ -400,11 +417,19 @@ export default function UnifiedPortal() {
                   };
                   
                   // ONE unified update
-                  setOrders(prev => [newOrder, ...prev]);
-                  
-                  addAuditLog("DONATION_CREATED", "Donor", `Created donation ${reqId} for ${donorForm.name} at ${donorLocation.address}`);
-                  notify("Success!", "Donation published globally with location.");
-                  setDonorTab("history");
+                  fetch('/api/donations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newOrder)
+                  }).then(() => {
+                    setOrders(prev => [newOrder, ...prev]);
+                    addAuditLog("DONATION_CREATED", "Donor", `Created donation ${reqId} for ${donorForm.name} at ${donorLocation.address}`);
+                    notify("Success!", "Donation published globally with location.");
+                    setDonorTab("history");
+                  }).catch(e => {
+                    console.error(e);
+                    notify("Error", "Failed to publish donation.");
+                  });
                 }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 rounded-xl mt-4 flex items-center justify-center gap-2">
                   <CheckCircle2 size={20}/> Publish Donation
                 </button>
@@ -494,10 +519,16 @@ export default function UnifiedPortal() {
                     </button>
                   </div>
                   <button onClick={() => {
-                    setOrders(prev => prev.map(o => o.id === editingOrder.id ? editingOrder : o));
-                    addAuditLog("DONATION_EDITED", "Donor", `Edited donation ${editingOrder.id}`);
-                    notify("Updated", "Donation details saved.");
-                    setEditingOrder(null);
+                    fetch(`/api/donations/${editingOrder.id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(editingOrder)
+                    }).then(() => {
+                      setOrders(prev => prev.map(o => o.id === editingOrder.id ? editingOrder : o));
+                      addAuditLog("DONATION_EDITED", "Donor", `Edited donation ${editingOrder.id}`);
+                      notify("Updated", "Donation details saved.");
+                      setEditingOrder(null);
+                    }).catch(e => console.error(e));
                   }} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl mt-4 transition-colors">
                     Save Changes
                   </button>
@@ -612,11 +643,17 @@ export default function UnifiedPortal() {
                         <MapPin size={16}/> Track Route
                       </button>
                       <button onClick={() => {
-                        setOrders(prev => prev.map(o => o.id === req.id ? {...o, status: "Completed"} : o));
-                        if(activeRouteOrder?.id === req.id) setActiveRouteOrder(null);
-                        addAuditLog("PICKUP_COMPLETED", "NGO", `Delivery completed for ${req.id}`);
-                        setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Your donation ${req.foodName} was successfully picked up!`, read: false}, ...n]);
-                        notify("Completed", "Food successfully delivered!");
+                        fetch(`/api/donations/${req.id}`, {
+                          method: 'PUT',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ status: "Completed" })
+                        }).then(() => {
+                          setOrders(prev => prev.map(o => o.id === req.id ? {...o, status: "Completed"} : o));
+                          if(activeRouteOrder?.id === req.id) setActiveRouteOrder(null);
+                          addAuditLog("PICKUP_COMPLETED", "NGO", `Delivery completed for ${req.id}`);
+                          setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Your donation ${req.foodName} was successfully picked up!`, read: false}, ...n]);
+                          notify("Completed", "Food successfully delivered!");
+                        }).catch(e => console.error(e));
                       }} className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-xl font-bold transition-colors">Complete Delivery</button>
                     </div>
                   </div>
@@ -640,15 +677,22 @@ export default function UnifiedPortal() {
                    <AddressSearch placeholder="Type your address..." onSelect={(loc) => {
                      // Proceed to accept
                      const updatedOrder = {...acceptingOrder, status: "Pickup Assigned" as OrderStatus, volunteerName: "You (NGO)", ngoLocation: loc};
-                     setOrders(prev => prev.map(o => o.id === acceptingOrder.id ? updatedOrder : o));
-                     setMealsSaved(prev => prev + acceptingOrder.quantity);
-                     addAuditLog("PICKUP_ACCEPTED", "NGO", `NGO assigned to ${acceptingOrder.id}. Routing to ${loc.address}`);
-                     setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `NGO accepted your pickup! En-route to ${loc.address}.`, read: false}, ...n]);
                      
-                     notify("Route Calculated!", "Pickup assigned. OSRM routing active.");
-                     setAcceptingOrder(null);
-                     setNgoTab("pickups");
-                     setViewingMapRoute(updatedOrder);
+                     fetch(`/api/donations/${acceptingOrder.id}`, {
+                       method: 'PUT',
+                       headers: { 'Content-Type': 'application/json' },
+                       body: JSON.stringify(updatedOrder)
+                     }).then(() => {
+                       setOrders(prev => prev.map(o => o.id === acceptingOrder.id ? updatedOrder : o));
+                       setMealsSaved(prev => prev + acceptingOrder.quantity);
+                       addAuditLog("PICKUP_ACCEPTED", "NGO", `NGO assigned to ${acceptingOrder.id}. Routing to ${loc.address}`);
+                       setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `NGO accepted your pickup! En-route to ${loc.address}.`, read: false}, ...n]);
+                       
+                       notify("Route Calculated!", "Pickup assigned. OSRM routing active.");
+                       setAcceptingOrder(null);
+                       setNgoTab("pickups");
+                       setViewingMapRoute(updatedOrder);
+                     }).catch(e => console.error(e));
                    }} />
                 </div>
               </div>

@@ -34,14 +34,14 @@
 - **Network Tab**: Verified partner list (Donors & NGOs) with approval/rejection controls
 - **AI Insights Tab**: Simulated AI-powered analytics on route optimization and expiry hotspots
 - Real-time toast notifications on order status changes
-- **State Persisted**: All orders, audit logs, and user network data are saved to `localStorage` and survive portal switching
+- **State Persisted**: All donations are synced in real-time with a **MongoDB database**. Audit logs and user network data use `localStorage`.
 
 ---
 
 ### 🥗 Donor Dashboard (`/admin?role=Donor`)
 - **Donate Tab**: Form to list surplus food with name, type (Veg/Non-Veg), quantity, cooked time, and spoilage window
 - **Active Donations Tab**: Live view of all listed food with countdown expiry timers, status badges, and edit/delete controls
-- New donations are instantly written to the **global shared state** visible to Admin and NGO portals
+- New donations are instantly written to the **MongoDB database**, visible globally to Admin and NGO portals in real-time.
 
 ---
 
@@ -108,7 +108,7 @@ Fully informational — **only the Explore button navigates**. Sections include:
 | Map (Heatmap) | Google Maps Visualization Library |
 | QR Code | `react-qr-code` |
 | Icons | Lucide React |
-| State | React `useState` + `localStorage` persistence |
+| State | React `useState` + MongoDB Backend |
 | Font | Inter (Google Fonts) |
 
 ---
@@ -181,7 +181,7 @@ src/
 
 ## 🗺️ Roadmap / Next Steps
 
-- [x] **MongoDB integration** — Real local backend with Bcrypt hashing and JWT.
+- [x] **MongoDB integration** — Real local backend for Donations, Auth (Bcrypt/JWT).
 - [ ] **NextAuth authentication** — For social logins and more advanced strategies.
 - [ ] **Razorpay/Stripe integration** — real webhook for UPI payment confirmation
 - [ ] **Push notifications** — notify NGOs when new food is listed nearby
