@@ -10,8 +10,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, name?: string) => void;
-  register: (email: string, name: string) => void;
+  login: (user: User, token: string) => void;
   logout: () => void;
 }
 
@@ -20,10 +19,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
-  // Load session from localStorage on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem("dummy_user");
-    if (storedUser) {
+    const storedUser = localStorage.getItem("auth_user");
+    const token = localStorage.getItem("auth_token");
+    if (storedUser && token) {
       try {
         setUser(JSON.parse(storedUser));
       } catch (e) {
@@ -32,25 +31,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const login = (email: string, name: string = "Dummy User") => {
-    const newUser = { id: Math.random().toString(36).substring(7), email, name };
+  const login = (newUser: User, token: string) => {
     setUser(newUser);
-    localStorage.setItem("dummy_user", JSON.stringify(newUser));
-  };
-
-  const register = (email: string, name: string) => {
-    const newUser = { id: Math.random().toString(36).substring(7), email, name };
-    setUser(newUser);
-    localStorage.setItem("dummy_user", JSON.stringify(newUser));
+    localStorage.setItem("auth_user", JSON.stringify(newUser));
+    localStorage.setItem("auth_token", token);
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("dummy_user");
+    localStorage.removeItem("auth_user");
+    localStorage.removeItem("auth_token");
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, register, logout }}>
+    <AuthContext.Provider value={{ user, login, logout }}>
       {children}
     </AuthContext.Provider>
   );
