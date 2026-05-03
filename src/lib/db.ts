@@ -22,7 +22,11 @@ async function connectToDatabase() {
       bufferCommands: false,
     };
 
+    const isLocal = MONGODB_URI.includes("localhost") || MONGODB_URI.includes("127.0.0.1");
+    console.log(`📡 Connecting to ${isLocal ? "LOCAL" : "CLOUD"} Database...`);
+
     cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+      console.log(`✅ Connected to ${isLocal ? "Local" : "Cloud"} MongoDB`);
       return mongoose;
     });
   }
@@ -31,6 +35,7 @@ async function connectToDatabase() {
     cached.conn = await cached.promise;
   } catch (e) {
     cached.promise = null;
+    console.error("❌ MongoDB Connection Error:", e);
     throw e;
   }
 

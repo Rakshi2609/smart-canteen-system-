@@ -29,19 +29,23 @@ export async function POST(req: Request) {
     const newUser = new User({ name, email, passwordHash, role, status: "Pending Approval", totalImpact: 0 });
     await newUser.save();
 
-    const token = jwt.sign({ id: newUser._id, email: newUser.email, role: newUser.role, status: newUser.status }, JWT_SECRET, {
+    const token = jwt.sign({ id: newUser._id.toString(), email: newUser.email, role: newUser.role, status: newUser.status }, JWT_SECRET, {
       expiresIn: "7d",
     });
 
     return NextResponse.json(
       {
-        user: { id: newUser._id, name: newUser.name, email: newUser.email, role: newUser.role, status: newUser.status },
+        user: { id: newUser._id.toString(), name: newUser.name, email: newUser.email, role: newUser.role, status: newUser.status },
         token,
       },
       { status: 201 }
     );
-  } catch (error) {
-    console.error("Register Error:", error);
-    return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+  } catch (error: any) {
+    console.error("Register Error Details:", {
+      message: error.message,
+      stack: error.stack,
+      body: await req.clone().json().catch(() => "could not parse body")
+    });
+    return NextResponse.json({ error: "Internal Server Error", details: error.message }, { status: 500 });
   }
 }
