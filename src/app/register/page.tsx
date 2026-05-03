@@ -10,6 +10,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("Donor");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +26,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password }),
+        body: JSON.stringify({ name, email, password, role }),
       });
 
       const data = await res.json();
@@ -35,7 +36,7 @@ export default function RegisterPage() {
       }
 
       login(data.user, data.token);
-      router.push("/");
+      router.push(`/admin?role=${data.user.role}`);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -58,6 +59,19 @@ export default function RegisterPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-300">I am registering as</label>
+            <div className="flex gap-4">
+              <label className={`flex-1 p-3 rounded-xl border cursor-pointer text-center font-medium transition-all ${role === "Donor" ? "border-primary bg-primary/20 text-white" : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"}`}>
+                <input type="radio" name="role" value="Donor" checked={role === "Donor"} onChange={() => setRole("Donor")} className="hidden" />
+                Donor (Donate Food)
+              </label>
+              <label className={`flex-1 p-3 rounded-xl border cursor-pointer text-center font-medium transition-all ${role === "NGO" ? "border-primary bg-primary/20 text-white" : "border-white/10 bg-white/5 text-slate-400 hover:bg-white/10"}`}>
+                <input type="radio" name="role" value="NGO" checked={role === "NGO"} onChange={() => setRole("NGO")} className="hidden" />
+                NGO (Rescue Food)
+              </label>
+            </div>
+          </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-300">Full Name</label>
             <div className="relative">

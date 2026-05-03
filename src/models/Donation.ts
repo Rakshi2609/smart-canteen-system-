@@ -17,6 +17,8 @@ export interface IDonation extends Document {
   distance: string;
   status: string;
   volunteerName?: string;
+  donorId?: string;
+  ngoId?: string;
   donorLocation?: ILocationPoint;
   ngoLocation?: ILocationPoint;
 }
@@ -38,6 +40,8 @@ const DonationSchema = new Schema<IDonation>({
   distance: { type: String, default: "0.0 km" },
   status: { type: String, default: "Waiting" },
   volunteerName: { type: String },
+  donorId: { type: String },
+  ngoId: { type: String },
   donorLocation: { type: LocationPointSchema },
   ngoLocation: { type: LocationPointSchema },
 }, { timestamps: true });
