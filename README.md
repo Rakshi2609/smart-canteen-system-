@@ -19,12 +19,13 @@
 
 ### 🔐 Portal System (`/portals`)
 - Animated glassmorphic portal selection page with floating bubble background
-- Three role-based portals with pre-filled credentials (no typing needed):
-  - **Admin** — Passcode: `og123`
-  - **Donor** — Email pre-filled, direct dashboard access
-  - **NGO** — Email pre-filled, direct dashboard access
+- Three role-based portals with secure entry:
+  - **Admin** — Secure Passcode: `og123` (Enforced validation)
+  - **Donor** — Direct dashboard access for hotels/restaurants
+  - **NGO** — Direct dashboard access for rescue organizations
 - Smooth Framer Motion modal transitions per portal
-- Once logged in → goes directly to the role-specific dashboard, skipping any secondary login
+- **Single Sign-On**: Passcode entered at the portal page automatically authenticates the user for the dashboard.
+- **Optimized Navigation**: Zero-flicker transitions and direct portal linking.
 
 ---
 
@@ -32,9 +33,9 @@
 - **Overview Tab**: Live global stats (meals saved, active orders, expiry alerts)
 - **Orders Tab**: Full global donation order management with status controls (`Waiting → Accepted → Delivered → Expired`)
 - **Network Tab**: Verified partner list (Donors & NGOs) with approval/rejection controls
-- **AI Insights Tab**: Simulated AI-powered analytics on route optimization and expiry hotspots
-- Real-time toast notifications on order status changes
-- **State Persisted**: All orders, audit logs, and user network data are saved to `localStorage` and survive portal switching
+- **AI Insights Tab (Functional)**: Real-time analysis powered by **Ollama (llama3)**. Provides demand forecasting, restock alerts, and waste reduction strategy based on live platform data.
+- **State Persisted**: All orders, audit logs, and user network data are saved to `localStorage` and survive portal switching.
+- **Advanced Security**: Passcode validation enforced at both entry and dashboard levels.
 
 ---
 
@@ -102,6 +103,7 @@ Fully informational — **only the Explore button navigates**. Sections include:
 | Language | TypeScript |
 | Styling | TailwindCSS v3 |
 | Animations | Framer Motion |
+| AI Engine | Ollama (llama3) — Local Inference |
 | Map (Display) | Google Maps API + `@react-google-maps/api` |
 | Map (Restaurants) | OpenStreetMap Overpass API (FREE, no key) |
 | Map (Routing) | OSRM (FREE, open routing engine) |
