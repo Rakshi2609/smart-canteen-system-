@@ -148,10 +148,16 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ```env
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
-
+GROQ_API_KEY=your_groq_api_key_here
+# Optional overrides
+# OLLAMA_URL=http://127.0.0.1:11434/api/generate
+# OLLAMA_MODEL=llama3
+# GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
 > ℹ️ The Google Maps key is **optional**. Map tiles and the restaurant finder (Overpass API) work without it. The key only enhances the Places API fallback.
+>
+> The AI routes try local Ollama first. If Ollama is unavailable and `GROQ_API_KEY` is set, they automatically fall back to Groq.
 
 ---
 

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
+import { generateJson } from "@/lib/ai";
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body = (await request.json()) as { canteenName: string };
     const { canteenName } = body;
 
     // Construct the prompt for LLaMA 3
@@ -28,39 +29,16 @@ Please output a JSON object with the following structure:
 Output ONLY valid JSON.
 `;
 
-    const ollamaResponse = await fetch("http://127.0.0.1:11434/api/generate", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama3",
-        prompt: prompt,
-        stream: false,
-        format: "json", // Forces JSON output in Ollama
-      }),
-    });
-
-    if (!ollamaResponse.ok) {
-      throw new Error(`Failed to connect to local Ollama instance: ${ollamaResponse.statusText}`);
-    }
-
-    const data = await ollamaResponse.json();
-    let result;
-    try {
-      result = JSON.parse(data.response);
-    } catch (parseErr) {
-      throw new Error("Failed to parse AI response as JSON");
-    }
+    const result = await generateJson(prompt);
 
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("AI Menu Error:", error);
-    // Provide a random mock fallback if Ollama fails
+    // Provide a random mock fallback if both Ollama and optional Groq fail.
     const mockMenu = [
       { id: 1, name: "AI Masala Dosa", price: "₹60", available: 10, category: "AI Specials" },
       { id: 2, name: "Neural Network Noodles", price: "₹120", available: 25, category: "Main Course" },
-      { id: 3, name: "Ollama Filter Coffee", price: "₹30", available: 5, category: "Beverages" },
+      { id: 3, name: "Fallback Filter Coffee", price: "₹30", available: 5, category: "Beverages" },
       { id: 4, name: "Server Crash Samosa", price: "₹25", available: 0, category: "Snacks" }
     ];
     return NextResponse.json({ menu: mockMenu }, { status: 200 });
