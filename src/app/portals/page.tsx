@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowRight, ShieldCheck, Package, Heart, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -18,6 +18,29 @@ const bubbles = [
 
 export default function PortalsPage() {
   const [activePortal, setActivePortal] = useState<"Admin" | "Donor" | "NGO" | null>(null);
+  const [passcode, setPasscode] = useState("");
+  const [error, setError] = useState("");
+  
+  const handleAccess = () => {
+    if (activePortal === "Admin") {
+      if (passcode === "og123") {
+        window.location.href = `/admin?role=Admin&auth=og123`;
+      } else {
+        setError("Invalid passcode. Please try again.");
+      }
+    } else {
+      // For Donor/NGO just allow for now as per current mock behavior
+      window.location.href = `/admin?role=${activePortal}&auth=og123`;
+    }
+  };
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get("type");
+    if (type === "Admin" || type === "Donor" || type === "NGO") {
+      setActivePortal(type as any);
+    }
+  }, []);
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-black relative flex flex-col font-sans selection:bg-primary/30 pt-16">
@@ -197,10 +220,12 @@ export default function PortalsPage() {
                   <div className="relative">
                     <input 
                       type="password" 
-                      defaultValue="og123"
+                      value={passcode}
+                      onChange={(e) => { setPasscode(e.target.value); setError(""); }}
                       placeholder="Enter Admin Passcode" 
-                      className="w-full bg-black/60 border border-white/10 focus:border-primary focus:ring-2 focus:ring-primary rounded-2xl py-6 px-8 text-2xl text-white font-medium outline-none transition-all placeholder:text-slate-600"
+                      className={`w-full bg-black/60 border ${error ? 'border-red-500' : 'border-white/10'} focus:border-primary focus:ring-2 focus:ring-primary rounded-2xl py-6 px-8 text-2xl text-white font-medium outline-none transition-all placeholder:text-slate-600`}
                     />
+                    {error && <p className="text-red-400 text-sm mt-3 ml-2 font-bold animate-pulse">{error}</p>}
                   </div>
                 ) : (
                   <div className="space-y-6">
@@ -224,9 +249,8 @@ export default function PortalsPage() {
                 )}
                 
                 <div className="pt-8">
-                  <Link 
-                    href={`/admin?role=${activePortal}`} 
-                    onClick={() => setActivePortal(null)}
+                  <button 
+                    onClick={handleAccess}
                     className={`flex w-full py-6 text-white font-black text-2xl rounded-2xl transition-all shadow-xl items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] ${
                       activePortal === "Admin" ? "bg-primary hover:bg-primary/90 shadow-[0_0_40px_rgba(59,130,246,0.3)]" : 
                       activePortal === "Donor" ? "bg-emerald-500 hover:bg-emerald-600 shadow-[0_0_40px_rgba(16,185,129,0.3)]" : 
@@ -234,7 +258,7 @@ export default function PortalsPage() {
                     }`}
                   >
                     Access Dashboard <ArrowRight size={28} />
-                  </Link>
+                  </button>
                 </div>
               </div>
             </motion.div>
