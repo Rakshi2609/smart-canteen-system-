@@ -54,9 +54,9 @@
 ---
 
 ### 🗺️ Live Map (`/map`)
-**Restaurant Finder** — powered by **OpenStreetMap Overpass API** (free, no API key needed):
-- Fetches real restaurants, cafes, fast food, and canteens within 2.5km of the user's location
-- Falls back to curated mock data if outside mapped areas
+**Restaurant Finder** — powered by **AI (Groq / Ollama)**:
+- Generates 10 real (or highly realistic) food places (restaurants, cafes, canteens) within a 5km radius of the user's location based on their coordinates.
+- Falls back to curated mock data if the AI API fails or is unavailable.
 - **Color-coded teardrop markers**:
   - 🔴 Red = High Priority
   - 🟠 Orange = Medium Priority
@@ -105,7 +105,7 @@ Fully informational — **only the Explore button navigates**. Sections include:
 | Animations | Framer Motion |
 | AI Engine | Ollama (llama3) — Local Inference |
 | Map (Display) | Google Maps API + `@react-google-maps/api` |
-| Map (Restaurants) | OpenStreetMap Overpass API (FREE, no key) |
+| Map (Restaurants) | AI Generation via Groq or Ollama |
 | Map (Routing) | OSRM (FREE, open routing engine) |
 | Map (Heatmap) | Google Maps Visualization Library |
 | QR Code | `react-qr-code` |
@@ -155,7 +155,7 @@ GROQ_API_KEY=your_groq_api_key_here
 # GROQ_MODEL=llama-3.3-70b-versatile
 ```
 
-> ℹ️ The Google Maps key is **optional**. Map tiles and the restaurant finder (Overpass API) work without it. The key only enhances the Places API fallback.
+> ℹ️ The Google Maps key is **optional**. Map tiles work without it. The AI API handles finding the restaurants.
 >
 > The AI routes try local Ollama first. If Ollama is unavailable and `GROQ_API_KEY` is set, they automatically fall back to Groq.
 
@@ -183,8 +183,8 @@ src/
 
 ## 🗺️ Roadmap / Next Steps
 
-- [ ] **Firebase/Supabase integration** — replace `localStorage` with a real persistent database
-- [ ] **NextAuth authentication** — real login instead of mock credentials
+- [x] **MongoDB integration** — Real local backend with Bcrypt hashing and JWT.
+- [ ] **NextAuth authentication** — For social logins and more advanced strategies.
 - [ ] **Razorpay/Stripe integration** — real webhook for UPI payment confirmation
 - [ ] **Push notifications** — notify NGOs when new food is listed nearby
 - [ ] **Mobile app** — React Native companion app for volunteers
