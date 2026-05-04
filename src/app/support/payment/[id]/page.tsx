@@ -10,6 +10,7 @@ export default function PaymentStatusPage() {
 
   const [payment, setPayment] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
+  const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -41,6 +42,25 @@ export default function PaymentStatusPage() {
     if (payment?.payload?.upi) {
       await navigator.clipboard.writeText(payment.payload.upi);
       alert("UPI link copied to clipboard");
+    }
+  };
+
+  const handlePayNow = async () => {
+    if (!id || paying || isCompleted) return;
+    setPaying(true);
+    try {
+      const res = await fetch(`/api/payments/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "Completed" }),
+      });
+      if (!res.ok) throw new Error("Failed to process payment");
+      const data = await res.json();
+      setPayment(data);
+    } catch (e: any) {
+      setError(e.message || "Failed to process payment");
+    } finally {
+      setPaying(false);
     }
   };
 
@@ -107,6 +127,13 @@ export default function PaymentStatusPage() {
           <div className="space-y-3 mb-6">
             {!isCompleted && (
               <>
+                <button
+                  onClick={handlePayNow}
+                  disabled={paying}
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-colors disabled:opacity-70 disabled:cursor-wait"
+                >
+                  {paying ? "Processing Payment..." : "Pay Now"}
+                </button>
                 <button
                   onClick={copyUPI}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-colors flex items-center justify-center gap-2"

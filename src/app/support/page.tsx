@@ -28,6 +28,7 @@ export default function SupportPage() {
   const [amount, setAmount] = useState<number | "custom" | "">("");
   const [customAmount, setCustomAmount] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [verificationMessage, setVerificationMessage] = useState<string | null>(null);
   const [paymentId, setPaymentId] = useState<string | null>(null);
   const qrRef = useRef<HTMLDivElement | null>(null);
 
@@ -36,6 +37,7 @@ export default function SupportPage() {
     setPaymentStep("amount");
     setAmount("");
     setCustomAmount("");
+    setVerificationMessage(null);
     setIsModalOpen(true);
   };
 
@@ -46,6 +48,7 @@ export default function SupportPage() {
     // create a short unique payment id
     const id = typeof crypto !== "undefined" && (crypto as any).randomUUID ? (crypto as any).randomUUID() : `p_${Date.now()}_${Math.floor(Math.random()*9000)+1000}`;
     setPaymentId(id);
+    setVerificationMessage(null);
 
     // persist payment record as Pending
     try {
@@ -71,24 +74,30 @@ export default function SupportPage() {
   const handleScanSuccess = () => {
     setIsVerifying(true);
     setTimeout(async () => {
-      // mark payment as completed in DB
       try {
         if (paymentId) {
-          await fetch(`/api/payments/${paymentId}`, {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status: 'Completed' }),
-          });
+          const res = await fetch(`/api/payments/${paymentId}`);
+          if (!res.ok) {
+            setVerificationMessage('Could not verify payment. Please try again.');
+            return;
+          }
+          const data = await res.json();
+          if (data?.status === 'Completed') {
+            setVerificationMessage(null);
+            setPaymentStep("success");
+            setTimeout(() => {
+              setIsModalOpen(false);
+            }, 3000);
+          } else {
+            setVerificationMessage('Payment is still pending. Ask payer to press Pay on payment page, then verify again.');
+          }
         }
       } catch (e) {
-        console.error('Update payment status failed', e);
+        console.error('Verify payment status failed', e);
+        setVerificationMessage('Could not verify payment. Please try again.');
+      } finally {
+        setIsVerifying(false);
       }
-
-      setIsVerifying(false);
-      setPaymentStep("success");
-      setTimeout(() => {
-        setIsModalOpen(false);
-      }, 3000);
     }, 1500); // Simulate API check
   };
 
@@ -446,6 +455,10 @@ export default function SupportPage() {
                       "I've Paid, Verify Status"
                     )}
                   </button>
+
+                  {verificationMessage && (
+                    <p className="mt-3 text-sm text-amber-400">{verificationMessage}</p>
+                  )}
                   
                   <button 
                     onClick={() => setPaymentStep("amount")}
