@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { ArrowRight, ShieldCheck, Package, Heart, Zap, MapPin, Coins, LayoutDashboard, BarChart3, Bell, Route, QrCode, Star, Flame, Users, Clock, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -88,6 +89,15 @@ const supportFeatures = [
 ];
 
 export default function Home() {
+  const [qrPattern, setQrPattern] = useState<number[]>([]);
+  const [liveCount, setLiveCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    // generate QR pattern client-side to avoid SSR/CSR mismatch
+    setQrPattern(Array.from({ length: 64 }).map(() => (Math.random() > 0.45 ? 1 : 0)));
+    setLiveCount(Math.floor(Math.random() * 30 + 10));
+  }, []);
+
   return (
     <div className="min-h-screen bg-black relative flex flex-col font-sans selection:bg-primary/30">
 
@@ -249,7 +259,7 @@ export default function Home() {
                   <line x1="0" y1="30%" x2="100%" y2="70%" stroke="white" strokeWidth="1" />
                 </svg>
                 <div className="absolute bottom-6 left-6 bg-black/70 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2 text-xs font-bold text-white flex items-center gap-2">
-                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> Live — {Math.floor(Math.random() * 30 + 10)} active locations
+                  <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" /> Live — {liveCount ?? '—'} active locations
                 </div>
                 <div className="absolute top-6 right-6 bg-black/70 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2 text-xs font-bold text-white">
                   🗺️ OpenStreetMap Powered
@@ -300,9 +310,14 @@ export default function Home() {
               <div className="bg-white p-4 rounded-2xl shadow-xl mb-6">
                 {/* Fake QR Grid */}
                 <div className="w-32 h-32 grid grid-cols-8 gap-0.5">
-                  {Array.from({ length: 64 }).map((_, i) => (
-                    <div key={i} className="rounded-sm" style={{ background: Math.random() > 0.45 ? "#000" : "#fff", aspectRatio: "1" }} />
-                  ))}
+                  {qrPattern.length === 64 ? qrPattern.map((v, i) => (
+                    <div key={i} className="rounded-sm" style={{ background: v ? "#000" : "#fff", aspectRatio: "1" }} />
+                  )) : (
+                    // fallback static placeholder while pattern initializes
+                    Array.from({ length: 64 }).map((_, i) => (
+                      <div key={i} className="rounded-sm" style={{ background: i % 2 === 0 ? "#000" : "#fff", aspectRatio: "1" }} />
+                    ))
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 text-xs text-slate-400 bg-white/5 border border-white/10 rounded-full px-4 py-2">
