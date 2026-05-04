@@ -11,7 +11,9 @@ export function middleware(request: NextRequest) {
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
   // Routes requiring authentication
-  const protectedRoutes = ["/admin", "/portals", "/api/donations/"];
+  // Keep the dashboard client-driven so logged-in users can reach it after
+  // the local auth context hydrates, while still protecting server-side writes.
+  const protectedRoutes = ["/api/donations/"];
   // Only PUT/DELETE on /api/users need auth (admin operations)
   // GET /api/users/[id] is allowed for checking user status
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route)) || 

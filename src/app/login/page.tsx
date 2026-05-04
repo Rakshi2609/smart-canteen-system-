@@ -34,9 +34,14 @@ export default function LoginPage() {
       }
 
       login(data.user, data.token);
-      
-      // Don't redirect - let user see they're logged in and click dashboard
-      // The cookie is now set, so clicking "Admin Dashboard" link will work
+
+      if (data.user.role === "Admin") {
+        router.push("/admin");
+      } else if (data.user.role === "Donor") {
+        router.push("/admin?role=Donor");
+      } else {
+        router.push("/admin?role=NGO");
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

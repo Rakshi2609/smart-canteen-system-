@@ -1,13 +1,14 @@
 "use client";
 
 import Link from 'next/link';
-import { Map, LayoutDashboard, Utensils, LogOut, User as UserIcon, Package, Heart, AlertCircle } from 'lucide-react';
+import { Map, LayoutDashboard, Utensils, LogOut, User as UserIcon, Package, Heart, AlertCircle, Menu, X } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 
 export default function Navbar() {
   const { user, loading, logout } = useAuth();
   const [isHydrated, setIsHydrated] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setIsHydrated(true);
@@ -15,13 +16,22 @@ export default function Navbar() {
 
   return (
     <>
-    <nav className="fixed top-0 w-full z-50 glass border-b border-white/10 px-6 py-4">
-      <div className="max-w-7xl mx-auto flex items-center justify-between">
+    <nav className="fixed top-0 w-full z-50 glass border-b border-white/10 px-4 sm:px-6 py-3 sm:py-4">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2 text-xl font-bold text-white">
           <Utensils className="text-primary" />
           <span>SmartCanteen</span>
         </Link>
-        <div className="flex items-center gap-6">
+        <button
+          type="button"
+          onClick={() => setMobileMenuOpen(open => !open)}
+          className="md:hidden inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 p-2 text-slate-200"
+          aria-label="Toggle navigation menu"
+        >
+          {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+        </button>
+
+        <div className="hidden md:flex items-center gap-6">
           <Link href="/map" className="flex items-center gap-2 text-lg font-bold text-slate-300 hover:text-white transition-colors">
             <Map size={22} />
             <span>Live Map</span>
@@ -87,6 +97,48 @@ export default function Navbar() {
           )}
         </div>
       </div>
+
+      {mobileMenuOpen && (
+        <div className="md:hidden mt-3 rounded-2xl border border-white/10 bg-black/80 backdrop-blur-xl p-4 shadow-2xl">
+          <div className="flex flex-col gap-3">
+            <Link href="/map" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2 text-slate-200 hover:bg-white/5">
+              <Map size={18} />
+              <span>Live Map</span>
+            </Link>
+            <Link href="/support" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2 text-pink-300 hover:bg-pink-500/10">
+              <span>Support ❤️</span>
+            </Link>
+            {isHydrated && user ? (
+              <>
+                <Link href="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 rounded-xl px-3 py-2 text-slate-200 hover:bg-white/5">
+                  <LayoutDashboard size={18} />
+                  <span>{user.role === 'Admin' ? 'Admin Dashboard' : user.role === 'Donor' ? 'Donor Portal' : 'NGO Portal'}</span>
+                </Link>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    logout();
+                    window.location.href = "/";
+                  }}
+                  className="flex items-center gap-2 rounded-xl px-3 py-2 text-left text-red-400 hover:bg-red-500/10"
+                >
+                  <LogOut size={18} />
+                  <span>Logout</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/login" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2 text-slate-200 hover:bg-white/5">
+                  Login
+                </Link>
+                <Link href="/register" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-2 text-white bg-primary/90 hover:bg-primary text-center">
+                  Register
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </nav>
     
     {/* Pending Approval Warning Banner */}

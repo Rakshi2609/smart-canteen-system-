@@ -128,20 +128,6 @@ export default function UnifiedPortal() {
     }
   }, [user, loading, isMounted]);
 
-  // Show loading state while hydrating
-  if (!isMounted || loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="animate-spin text-primary" size={40} />
-      </div>
-    );
-  }
-
-  // Redirect unauthenticated users
-  if (!user) {
-    return null;
-  }
-
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [passcode, setPasscode] = useState("");
   const [error, setError] = useState("");
@@ -195,36 +181,63 @@ export default function UnifiedPortal() {
     return () => clearInterval(interval);
   }, []);
 
-  const defaultAuditLogs: AuditLog[] = [
-    { id: "L-001", time: new Date().toLocaleTimeString(), action: "SYSTEM_START", role: "System", details: "Unified Orders State Initialized" }
-  ];
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('rf_auditLogs');
-      if (saved) return JSON.parse(saved);
-    }
-    return defaultAuditLogs;
-  });
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [globalNotifications, setGlobalNotifications] = useState<{id: string, role: string, msg: string, read: boolean}[]>([]);
+  const [mealsSaved, setMealsSaved] = useState<number>(0);
 
-  const [globalNotifications, setGlobalNotifications] = useState<{id: string, role: string, msg: string, read: boolean}[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('rf_globalNotifications');
-      if (saved) return JSON.parse(saved);
+  const fetchAuditLogs = async () => {
+    try {
+      const res = await fetch("/api/audit-logs");
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setAuditLogs(data);
+      }
+    } catch (e) {
+      console.error(e);
     }
-    return [];
-  });
+  };
 
-  const [mealsSaved, setMealsSaved] = useState<number>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('rf_mealsSaved');
-      if (saved) return Number(JSON.parse(saved));
-    }
-    return 142;
-  });
+  useEffect(() => {
+    fetchAuditLogs();
+    const interval = setInterval(fetchAuditLogs, 15000);
+    return () => clearInterval(interval);
+  }, []);
 
-  useEffect(() => { localStorage.setItem('rf_auditLogs', JSON.stringify(auditLogs)); }, [auditLogs]);
-  useEffect(() => { localStorage.setItem('rf_globalNotifications', JSON.stringify(globalNotifications)); }, [globalNotifications]);
-  useEffect(() => { localStorage.setItem('rf_mealsSaved', JSON.stringify(mealsSaved)); }, [mealsSaved]);
+  useEffect(() => {
+    const derivedNotifications = [
+      ...orders
+        .filter(order => order.status === "Waiting" || order.status === "Pickup Assigned" || order.status === "Completed" || order.status === "Expired")
+        .map(order => {
+          const message = order.status === "Waiting"
+            ? `Donation ${order.foodName} is waiting for pickup.`
+            : order.status === "Pickup Assigned"
+              ? `NGO accepted ${order.foodName} and is en route.`
+              : order.status === "Completed"
+                ? `Your donation ${order.foodName} was successfully picked up.`
+                : `Donation ${order.foodName} expired without pickup.`;
+
+          return {
+            id: `notif-${order.id}-${order.status}`,
+            role: "Donor",
+            msg: message,
+            read: false,
+          };
+        }),
+      ...usersNetwork
+        .filter(entry => entry.status === "Pending Approval")
+        .map(entry => ({
+          id: `user-${entry.id}`,
+          role: "Admin",
+          msg: `${entry.name} is waiting for admin approval.`,
+          read: false,
+        })),
+    ];
+
+    setGlobalNotifications(derivedNotifications);
+    setMealsSaved(
+      orders.reduce((total, order) => total + (order.status === "Completed" ? order.quantity : 0), 0)
+    );
+  }, [orders, usersNetwork]);
   const [editingOrder, setEditingOrder] = useState<UnifiedOrder | null>(null);
   
   const [donorForm, setDonorForm] = useState({ name: "", type: "Veg", quantity: 10, time: "12:00", spoilageMins: 60 });
@@ -269,8 +282,34 @@ export default function UnifiedPortal() {
     return () => clearInterval(timer);
   }, []);
 
-  const addAuditLog = (action: string, roleLog: string, details: string) => {
-    setAuditLogs(prev => [{ id: `L-${Date.now()}`, time: new Date().toLocaleTimeString(), action, role: roleLog, details }, ...prev]);
+  // Keep hook order stable by returning only after all hooks are declared.
+  if (!isMounted || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="animate-spin text-primary" size={40} />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
+
+  const addAuditLog = async (action: string, roleLog: string, details: string) => {
+    const entry = { id: `L-${Date.now()}`, time: new Date().toLocaleTimeString(), action, role: roleLog, details };
+
+    setAuditLogs(prev => [entry, ...prev]);
+
+    try {
+      await fetch("/api/audit-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+      fetchAuditLogs();
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const notify = (title: string, desc: string) => {
