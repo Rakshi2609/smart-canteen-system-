@@ -50,7 +50,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user && user.status === "Pending Approval") {
       const interval = setInterval(async () => {
         try {
-          const res = await fetch(`/api/users/${user.id}`);
+          const token = localStorage.getItem("auth_token");
+          const res = await fetch(`/api/users/${user.id}`, {
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          });
           if (res.ok) {
             const updatedUser = await res.json();
             if (updatedUser.status !== user.status) {

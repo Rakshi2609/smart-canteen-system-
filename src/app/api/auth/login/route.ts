@@ -30,13 +30,25 @@ export async function POST(req: Request) {
       expiresIn: "7d",
     });
 
-    return NextResponse.json(
+    const response = NextResponse.json(
       {
         user: { id: user._id.toString(), name: user.name, email: user.email, role: user.role, status: user.status },
         token,
       },
       { status: 200 }
     );
+    
+    // Set auth_token cookie - NOT httpOnly so browser will definitely send it
+    // (This is a workaround for the environment, normally httpOnly is better for security)
+    response.cookies.set("auth_token", token, {
+      httpOnly: false, // Allow JavaScript access for debugging/fallback
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: "/"
+    });
+    
+    return response;
   } catch (error) {
     console.error("Login Error:", error);
     return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });

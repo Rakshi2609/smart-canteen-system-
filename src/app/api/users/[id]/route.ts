@@ -1,6 +1,18 @@
 import { NextResponse } from "next/server";
+import * as jwt from "jsonwebtoken";
 import connectToDatabase from "@/lib/db";
 import User from "@/models/User";
+
+const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key_change_in_production";
+
+// Helper to extract token from Authorization header or cookies
+function getTokenFromRequest(req: Request): string | null {
+  const authHeader = req.headers.get("authorization");
+  if (authHeader?.startsWith("Bearer ")) {
+    return authHeader.substring(7);
+  }
+  return null;
+}
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {

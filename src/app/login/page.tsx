@@ -35,18 +35,8 @@ export default function LoginPage() {
 
       login(data.user, data.token);
       
-      // Auto-redirect based on user role
-      if (data.user.status === "Pending Approval") {
-        router.push("/admin?tab=profile");
-      } else {
-        const dashboardPaths: Record<string, string> = {
-          "Admin": "/admin",
-          "Donor": "/admin?role=Donor",
-          "NGO": "/admin?role=NGO",
-        };
-        const path = dashboardPaths[data.user.role] || "/admin";
-        router.push(path);
-      }
+      // Don't redirect - let user see they're logged in and click dashboard
+      // The cookie is now set, so clicking "Admin Dashboard" link will work
     } catch (err: any) {
       setError(err.message);
     } finally {

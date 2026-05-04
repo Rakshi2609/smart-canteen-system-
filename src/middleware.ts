@@ -4,17 +4,36 @@ import * as jwt from "jsonwebtoken";
 const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key_change_in_production";
 
 export function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+  const { pathname, searchParams } = request.nextUrl;
 
   // Public routes (no auth needed)
   const publicRoutes = ["/", "/login", "/register", "/support", "/map", "/api/auth/"];
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
 
   // Routes requiring authentication
-  const protectedRoutes = ["/admin", "/portals", "/api/donations/", "/api/users/"];
-  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
+  const protectedRoutes = ["/admin", "/portals", "/api/donations/"];
+  // Only PUT/DELETE on /api/users need auth (admin operations)
+  // GET /api/users/[id] is allowed for checking user status
+  const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route)) || 
+    (pathname.startsWith("/api/users/") && (request.method === "PUT" || request.method === "DELETE"));
 
-  const token = request.cookies.get("auth_token")?.value;
+  let token = request.cookies.get("auth_token")?.value;
+  
+  // If token in query parameter (from login redirect), set it as a cookie
+  const tokenFromQuery = searchParams.get("token");
+  let response = NextResponse.next();
+  
+  if (tokenFromQuery && !token) {
+    token = tokenFromQuery;
+    // Set the token as a cookie (non-httpOnly for this environment)
+    response.cookies.set("auth_token", token, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: "/"
+    });
+  }
 
   // Verify token and extract role
   let decodedToken = null;
@@ -49,7 +68,7 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin", request.url));
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {

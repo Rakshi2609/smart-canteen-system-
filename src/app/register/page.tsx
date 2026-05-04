@@ -37,17 +37,18 @@ export default function RegisterPage() {
 
       login(data.user, data.token);
       
-      // Auto-redirect based on user role
+      // Auto-redirect based on user role using full page reload with token in URL
       if (data.user.status === "Pending Approval") {
-        router.push("/admin?tab=profile");
+        window.location.href = `/admin?tab=profile&token=${data.token}`;
       } else {
         const dashboardPaths: Record<string, string> = {
           "Admin": "/admin",
           "Donor": "/admin?role=Donor",
           "NGO": "/admin?role=NGO",
         };
-        const path = dashboardPaths[data.user.role] || "/admin";
-        router.push(path);
+        const pathBase = dashboardPaths[data.user.role] || "/admin";
+        const separator = pathBase.includes("?") ? "&" : "?";
+        window.location.href = `${pathBase}${separator}token=${data.token}`;
       }
     } catch (err: any) {
       setError(err.message);
