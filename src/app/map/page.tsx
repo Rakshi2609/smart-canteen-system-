@@ -19,6 +19,7 @@ export default function MapPage() {
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [checkedIn, setCheckedIn] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [crowdLevel, setCrowdLevel] = useState<"Low" | "Moderate" | "Busy">("Low");
   const [rating, setRating] = useState(0);
   const [hovered, setHovered] = useState(0);
@@ -53,8 +54,12 @@ export default function MapPage() {
 
   const handleShare = (loc: Canteen) => {
     const url = `https://www.google.com/maps?q=${loc.lat},${loc.lng}`;
-    navigator.clipboard.writeText(url).then(() => {
+    const shareText = `${loc.name}\n${url}`;
+
+    navigator.clipboard.writeText(shareText).then(() => {
       setCopied(true);
+      setSearchQuery(loc.name);
+      setToastMessage(`Copied ${loc.name} and added it to search`);
       setTimeout(() => setCopied(false), 2000);
     });
   };
@@ -77,7 +82,16 @@ export default function MapPage() {
           <h1 className="text-lg font-bold text-white mb-1 flex items-center gap-2">🍽️ Food Near Me</h1>
           <p className="text-xs text-slate-400">Real restaurants & cafes near you via OpenStreetMap. Click any pin to explore.</p>
         </div>
-        <LiveMap onCanteenSelect={setSelectedLocation} />
+        <div className="absolute top-28 left-6 z-10 w-[min(22rem,calc(100%-3rem))] pointer-events-auto">
+          <label className="block text-xs font-bold uppercase tracking-widest text-slate-400 mb-2">Search place</label>
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by place name, cuisine, or address"
+            className="w-full rounded-xl border border-white/10 bg-black/80 px-4 py-3 text-sm text-white placeholder:text-slate-500 shadow-2xl outline-none focus:border-primary"
+          />
+        </div>
+        <LiveMap onCanteenSelect={setSelectedLocation} searchQuery={searchQuery} />
       </div>
 
       {/* Side Panel */}

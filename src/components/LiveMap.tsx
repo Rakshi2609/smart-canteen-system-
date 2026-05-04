@@ -25,6 +25,7 @@ interface LocationPoint {
 interface LiveMapProps {
   onCanteenSelect?: (canteen: Canteen) => void;
   deliveryRoute?: { origin: LocationPoint; destination: LocationPoint };
+  searchQuery?: string;
 }
 
 const libraries: ("places" | "geometry" | "visualization")[] = ["places", "geometry", "visualization"];
@@ -58,7 +59,7 @@ const mapOptions = {
   ],
 };
 
-export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps) {
+export default function LiveMap({ onCanteenSelect, deliveryRoute, searchQuery = "" }: LiveMapProps) {
   const { isLoaded, loadError } = useJsApiLoader({
     id: 'google-map-script',
     googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "",
@@ -72,6 +73,7 @@ export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const heatmapRef = useRef<google.maps.visualization.HeatmapLayer | null>(null);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
 
   // Imperatively control the heatmap layer so it actually cleans up on toggle
   useEffect(() => {
@@ -261,6 +263,34 @@ export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps
     }
   }, [map, position, fetchNearbyRestaurants, deliveryRoute]);
 
+  useEffect(() => {
+    if (!map || deliveryRoute || !normalizedSearchQuery) return;
+
+    const matchedRestaurant = restaurants.find(restaurant => {
+      const searchableText = [restaurant.name, restaurant.address, restaurant.cuisine]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return searchableText.includes(normalizedSearchQuery);
+    });
+
+    if (matchedRestaurant) {
+      const matchedLocation = { lat: matchedRestaurant.lat, lng: matchedRestaurant.lng };
+      map.panTo(matchedLocation);
+      map.setZoom(16);
+      setActiveMarker(matchedRestaurant.id);
+    }
+  }, [map, deliveryRoute, normalizedSearchQuery, restaurants]);
+
+  const visibleRestaurants = restaurants.filter(restaurant => {
+    if (!normalizedSearchQuery) return true;
+    const searchableText = [restaurant.name, restaurant.address, restaurant.cuisine]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return searchableText.includes(normalizedSearchQuery);
+  });
+
   const onLoad = useCallback((map: google.maps.Map) => setMap(map), []);
   const onUnmount = useCallback(() => setMap(null), []);
 
@@ -306,7 +336,7 @@ export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps
         {/* Heatmap is controlled imperatively via heatmapRef, no JSX needed */}
 
         {/* --- STANDARD CANTEEN MODE --- */}
-        {!deliveryRoute && restaurants.map(restaurant => {
+        {!deliveryRoute && visibleRestaurants.map(restaurant => {
           let color = '#059669'; // Darker Green (emerald-600)
           if (restaurant.status === 'high-priority') color = '#dc2626'; // Darker Red (red-600)
           if (restaurant.status === 'medium-priority') color = '#d97706'; // Darker Orange (amber-600)
@@ -343,6 +373,12 @@ export default function LiveMap({ onCanteenSelect, deliveryRoute }: LiveMapProps
             </Marker>
           );
         })}
+
+        {!deliveryRoute && normalizedSearchQuery && visibleRestaurants.length === 0 && (
+          <div className="absolute top-6 right-6 z-[1000] rounded-xl border border-white/10 bg-black/80 px-4 py-3 text-sm text-slate-200 shadow-2xl">
+            No places match “{searchQuery}”
+          </div>
+        )}
       </GoogleMap>
 
       {/* Floating Controls */}
