@@ -19,12 +19,13 @@
 
 ### 🔐 Portal System (`/portals`)
 - Animated glassmorphic portal selection page with floating bubble background
-- Three role-based portals with pre-filled credentials (no typing needed):
-  - **Admin** — Passcode: `og123`
-  - **Donor** — Email pre-filled, direct dashboard access
-  - **NGO** — Email pre-filled, direct dashboard access
+- Three role-based portals with secure entry:
+  - **Admin** — Secure Passcode: `og123` (Enforced validation)
+  - **Donor** — Direct dashboard access for hotels/restaurants
+  - **NGO** — Direct dashboard access for rescue organizations
 - Smooth Framer Motion modal transitions per portal
-- Once logged in → goes directly to the role-specific dashboard, skipping any secondary login
+- **Single Sign-On**: Passcode entered at the portal page automatically authenticates the user for the dashboard.
+- **Optimized Navigation**: Zero-flicker transitions and direct portal linking.
 
 ---
 
@@ -105,6 +106,7 @@ Fully informational — **only the Explore button navigates**. Sections include:
 | Language | TypeScript |
 | Styling | TailwindCSS v3 |
 | Animations | Framer Motion |
+| AI Engine | Ollama (llama3) — Local Inference |
 | Map (Display) | Google Maps API + `@react-google-maps/api` |
 | Map (Restaurants) | AI Generation via Groq or Ollama |
 | Map (Routing) | OSRM (FREE, open routing engine) |
