@@ -286,11 +286,12 @@ export default function SupportPage() {
                   <p className="text-sm text-slate-400 mb-8">Open any UPI App on your phone and scan</p>
                   
                   <div className="bg-white p-4 rounded-2xl shadow-xl mb-4" ref={qrRef}>
-                    {/* Embed payment id into the payload so the QR is shareable */}
-                    <QRCode value={
-                      // we include both a UPI payload and a fallback shareable URL containing the payment id
-                      `upi://pay?pa=rescueflow@ybl&pn=${encodeURIComponent(selectedEntity)}&am=${amount}&cu=INR&tn=${paymentId}`
-                    } size={200} />
+                    {/* Use a shareable web URL so scanning on another device opens the payment page */}
+                    {typeof window !== 'undefined' && paymentId ? (
+                      <QRCode value={`${window.location.origin}/support/payment/${paymentId}`} size={200} />
+                    ) : (
+                      <QRCode value={paymentId ?? ''} size={200} />
+                    )}
                   </div>
 
                   <div className="mb-6 text-sm text-slate-400">
