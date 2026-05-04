@@ -19,7 +19,11 @@ export async function GET() {
       totalImpact: user.totalImpact,
     }));
 
-    return NextResponse.json(mappedUsers);
+    return NextResponse.json(mappedUsers, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
+    });
   } catch (error: any) {
     console.error("Fetch Users Error:", error);
     return NextResponse.json({ error: "Failed to fetch users" }, { status: 500 });

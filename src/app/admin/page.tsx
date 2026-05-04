@@ -149,12 +149,27 @@ export default function UnifiedPortal() {
 
   const fetchUsersNetwork = async () => {
     try {
-      const res = await fetch("/api/users");
+      const res = await fetch("/api/users", { cache: "no-store" });
       const data = await res.json();
       if (Array.isArray(data)) setUsersNetwork(data);
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const updateUserStatus = async (userId: string, status: "Verified" | "Suspended") => {
+    const response = await fetch(`/api/users/${userId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => null);
+      throw new Error(payload?.error || "Failed to update user status");
+    }
+
+    await fetchUsersNetwork();
   };
 
   useEffect(() => {
@@ -933,15 +948,13 @@ export default function UnifiedPortal() {
                              <p className="text-xs text-slate-500">{user.role}</p>
                            </div>
                            <button onClick={() => {
-                             fetch(`/api/users/${user.id}`, {
-                               method: 'PUT',
-                               headers: { 'Content-Type': 'application/json' },
-                               body: JSON.stringify({ status: "Verified" })
-                             }).then(() => {
-                               setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
-                               notify("Verified", `${user.name} is now active.`);
-                               addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
-                             }).catch(e => console.error(e));
+                               updateUserStatus(user.id, "Verified")
+                                 .then(() => {
+                                   setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
+                                   notify("Verified", `${user.name} is now active.`);
+                                   addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
+                                 })
+                                 .catch(e => console.error(e));
                            }} className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-bold hover:bg-primary/80 transition-colors">Approve</button>
                          </div>
                        ))
@@ -987,32 +1000,33 @@ export default function UnifiedPortal() {
                          <div className="flex flex-col gap-2 w-32">
                            {user.status === "Pending Approval" ? (
                              <button onClick={() => {
-                               fetch(`/api/users/${user.id}`, {
-                                 method: 'PUT',
-                                 headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({ status: "Verified" })
-                               }).then(() => {
-                                 setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
-                                 notify("Partner Verified", `${user.name} can now access the platform.`);
-                                 addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
-                               }).catch(e => console.error(e));
+                               updateUserStatus(user.id, "Verified")
+                                 .then(() => {
+                                   setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
+                                   notify("Partner Verified", `${user.name} can now access the platform.`);
+                                   addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
+                                 })
+                                 .catch(e => console.error(e));
                              }} className="bg-primary hover:bg-primary/90 text-white text-xs py-2 rounded-lg font-bold transition-colors w-full">Verify Partner</button>
                            ) : user.status === "Verified" ? (
                              <button onClick={() => {
-                               fetch(`/api/users/${user.id}`, {
-                                 method: 'PUT',
-                                 headers: { 'Content-Type': 'application/json' },
-                                 body: JSON.stringify({ status: "Suspended" })
-                               }).then(() => {
-                                 setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Suspended"} : u));
-                                 notify("Suspended", `${user.name} access revoked.`);
-                                 addAuditLog("SUSPENDED_PARTNER", "Admin", `Suspended partner: ${user.name}`);
-                               }).catch(e => console.error(e));
+                               updateUserStatus(user.id, "Suspended")
+                                 .then(() => {
+                                   setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Suspended"} : u));
+                                   notify("Suspended", `${user.name} access revoked.`);
+                                   addAuditLog("SUSPENDED_PARTNER", "Admin", `Suspended partner: ${user.name}`);
+                                 })
+                                 .catch(e => console.error(e));
                              }} className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs py-2 rounded-lg font-bold transition-colors w-full">Suspend Access</button>
                            ) : (
                              <button onClick={() => {
-                               setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
-                               notify("Restored", `${user.name} access restored.`);
+                               updateUserStatus(user.id, "Verified")
+                                 .then(() => {
+                                   setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
+                                   notify("Restored", `${user.name} access restored.`);
+                                   addAuditLog("VERIFIED_PARTNER", "Admin", `Restored partner: ${user.name}`);
+                                 })
+                                 .catch(e => console.error(e));
                              }} className="bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded-lg font-bold transition-colors w-full">Restore Access</button>
                            )}
                          </div>

@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 
 export type UserRole = "Admin" | "Donor" | "NGO";
-export type UserStatus = "Pending Approval" | "Verified" | "Rejected";
+export type UserStatus = "Pending Approval" | "Verified" | "Rejected" | "Suspended";
 
 export interface User {
   id: string;
@@ -48,13 +48,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Poll for status updates when pending approval
   useEffect(() => {
     if (user && user.status === "Pending Approval") {
-      const interval = setInterval(async () => {
+      const refreshStatus = async () => {
         try {
           const token = localStorage.getItem("auth_token");
           const res = await fetch(`/api/users/${user.id}`, {
+            cache: "no-store",
             headers: {
-              "Authorization": `Bearer ${token}`
-            }
+              "Authorization": `Bearer ${token}`,
+            },
           });
           if (res.ok) {
             const updatedUser = await res.json();
@@ -66,8 +67,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (e) {
           console.error("Failed to refresh user status", e);
         }
-      }, 60000); // 60s
-      return () => clearInterval(interval);
+      };
+
+      refreshStatus();
+
+      const interval = setInterval(refreshStatus, 10000);
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          refreshStatus();
+        }
+      };
+
+      window.addEventListener("focus", refreshStatus);
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      return () => {
+        clearInterval(interval);
+        window.removeEventListener("focus", refreshStatus);
+        document.removeEventListener("visibilitychange", handleVisibilityChange);
+      };
     }
   }, [user]);
 
@@ -97,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const refreshUser = async () => {
     if (!user) return;
     try {
-      const res = await fetch(`/api/users/${user.id}`);
+      const res = await fetch(`/api/users/${user.id}`, { cache: "no-store" });
       if (res.ok) {
         const updatedUser = await res.json();
         setUser(updatedUser);

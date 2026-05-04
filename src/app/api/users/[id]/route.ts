@@ -37,6 +37,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       role: updatedUser.role,
       status: updatedUser.status,
       totalImpact: updatedUser.totalImpact,
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
     });
   } catch (error: any) {
     console.error("Update User Error:", error);
@@ -61,6 +65,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       role: user.role,
       status: user.status,
       totalImpact: user.totalImpact,
+    }, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+      },
     });
   } catch (error: any) {
     console.error("Get User Error:", error);

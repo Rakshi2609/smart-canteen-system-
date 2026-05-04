@@ -5,7 +5,7 @@ export interface IUser extends Document {
   email: string;
   passwordHash: string;
   role: "Admin" | "Donor" | "NGO";
-  status: "Pending Approval" | "Verified" | "Rejected";
+  status: "Pending Approval" | "Verified" | "Rejected" | "Suspended";
   totalImpact: number;
   createdAt: Date;
 }
@@ -15,7 +15,7 @@ const UserSchema: Schema = new Schema({
   email: { type: String, required: true, unique: true },
   passwordHash: { type: String, required: true },
   role: { type: String, enum: ["Admin", "Donor", "NGO"], default: "Donor" },
-  status: { type: String, enum: ["Pending Approval", "Verified", "Rejected"], default: "Pending Approval" },
+  status: { type: String, enum: ["Pending Approval", "Verified", "Rejected", "Suspended"], default: "Pending Approval" },
   totalImpact: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
