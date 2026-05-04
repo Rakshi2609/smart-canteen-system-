@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Map, LayoutDashboard, Utensils, LogOut, User as UserIcon } from 'lucide-react';
+import { Map, LayoutDashboard, Utensils, LogOut, User as UserIcon, Package, Heart } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function Navbar() {
@@ -24,10 +24,23 @@ export default function Navbar() {
           </Link>
           {user ? (
             <>
-              <Link href={user.role === 'Admin' ? "/admin" : `/admin?role=${user.role}`} className="flex items-center gap-2 text-lg font-bold text-slate-300 hover:text-white transition-colors">
-                <LayoutDashboard size={22} />
-                <span>{user.role === 'Admin' ? 'Admin' : 'Portal'}</span>
-              </Link>
+              {/* Role-based dashboard link */}
+              {user.role === "Admin" ? (
+                <Link href="/admin" className="flex items-center gap-2 text-lg font-bold text-slate-300 hover:text-white transition-colors">
+                  <LayoutDashboard size={22} />
+                  <span>Admin Dashboard</span>
+                </Link>
+              ) : user.role === "Donor" ? (
+                <Link href="/admin?role=Donor" className="flex items-center gap-2 text-lg font-bold text-slate-300 hover:text-white transition-colors">
+                  <Package size={22} />
+                  <span>Donor Portal</span>
+                </Link>
+              ) : (
+                <Link href="/admin?role=NGO" className="flex items-center gap-2 text-lg font-bold text-slate-300 hover:text-white transition-colors">
+                  <Heart size={22} />
+                  <span>NGO Portal</span>
+                </Link>
+              )}
               <div className="flex items-center gap-4 border-l border-white/20 pl-6 ml-2">
                 <div className="flex flex-col items-end">
                   <div className="flex items-center gap-2 text-white">

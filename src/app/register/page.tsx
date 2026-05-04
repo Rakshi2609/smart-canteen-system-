@@ -36,7 +36,19 @@ export default function RegisterPage() {
       }
 
       login(data.user, data.token);
-      router.push(`/admin?role=${data.user.role}`);
+      
+      // Auto-redirect based on user role
+      if (data.user.status === "Pending Approval") {
+        router.push("/admin?tab=profile");
+      } else {
+        const dashboardPaths: Record<string, string> = {
+          "Admin": "/admin",
+          "Donor": "/admin?role=Donor",
+          "NGO": "/admin?role=NGO",
+        };
+        const path = dashboardPaths[data.user.role] || "/admin";
+        router.push(path);
+      }
     } catch (err: any) {
       setError(err.message);
     } finally {

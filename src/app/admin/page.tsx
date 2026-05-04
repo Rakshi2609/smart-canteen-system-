@@ -110,20 +110,37 @@ function AddressSearch({ placeholder, onSelect }: { placeholder: string, onSelec
 
 
 export default function UnifiedPortal() {
-  const { user, refreshUser } = useAuth();
-  const [role, setRole] = useState<Role>(null);
+  const { user, loading, refreshUser } = useAuth();
   const [isMounted, setIsMounted] = useState(false);
+  const [role, setRole] = useState<Role>(null);
   
   useEffect(() => {
     setIsMounted(true);
-    const params = new URLSearchParams(window.location.search);
-    const r = params.get("role");
-    if (r === "Admin" || r === "Donor" || r === "NGO") {
-      setRole(r as Role);
-    } else {
+  }, []);
+
+  // Use user role from context if available, otherwise check URL params for backward compatibility
+  useEffect(() => {
+    if (user && user.role) {
+      setRole(user.role as Role);
+    } else if (isMounted && !loading) {
+      // Redirect to portals if not authenticated
       window.location.href = "/portals";
     }
-  }, []);
+  }, [user, loading, isMounted]);
+
+  // Show loading state while hydrating
+  if (!isMounted || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="animate-spin text-primary" size={40} />
+      </div>
+    );
+  }
+
+  // Redirect unauthenticated users
+  if (!user) {
+    return null;
+  }
 
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [passcode, setPasscode] = useState("");
