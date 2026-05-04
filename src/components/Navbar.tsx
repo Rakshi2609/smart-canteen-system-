@@ -1,7 +1,7 @@
 "use client";
 
 import Link from 'next/link';
-import { Map, LayoutDashboard, Utensils, LogOut, User as UserIcon, Package, Heart } from 'lucide-react';
+import { Map, LayoutDashboard, Utensils, LogOut, User as UserIcon, Package, Heart, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 
@@ -14,6 +14,7 @@ export default function Navbar() {
   }, []);
 
   return (
+    <>
     <nav className="fixed top-0 w-full z-50 glass border-b border-white/10 px-6 py-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 text-xl font-bold text-white">
@@ -87,5 +88,17 @@ export default function Navbar() {
         </div>
       </div>
     </nav>
-  );
+    
+    {/* Pending Approval Warning Banner */}
+    {isHydrated && user && user.status === "Pending Approval" && (
+      <div className="fixed top-[72px] left-0 right-0 z-40 bg-amber-500/20 border-b border-amber-500/30 px-6 py-3 flex items-center gap-4">
+        <AlertCircle className="text-amber-400 shrink-0" size={20} />
+        <div className="flex-1">
+          <p className="text-amber-300 font-bold text-sm">⏳ Pending Admin Approval</p>
+          <p className="text-amber-200/80 text-xs">Your account is under review. An admin will verify you shortly. You can still explore.</p>
+        </div>
+      </div>
+    )}
+  </>
+);
 }
