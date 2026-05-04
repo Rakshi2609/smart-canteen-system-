@@ -2,11 +2,8 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { ArrowRight, ShieldCheck, Package, Heart } from "lucide-react";
-import { motion } from "framer-motion";
-import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { ArrowRight, ShieldCheck, Package, Heart, X } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const bubbles = [
   { size: 250, left: "5%",  top: "20%", duration: 18, color: "rgba(59,130,246,0.2)", xPath: [0, 200, -100, 0], yPath: [0, -200, 150, 0] },
@@ -20,47 +17,30 @@ const bubbles = [
 ];
 
 export default function PortalsPage() {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
-  // If user is logged in, redirect to their dashboard
-  useEffect(() => {
-    if (isHydrated && user) {
-      const roleToPath: Record<string, string> = {
-        "Admin": "/admin",
-        "Donor": "/admin?role=Donor",
-        "NGO": "/admin?role=NGO",
-      };
-      router.replace(roleToPath[user.role] || "/admin");
+  const [activePortal, setActivePortal] = useState<"Admin" | "Donor" | "NGO" | null>(null);
+  const [passcode, setPasscode] = useState("");
+  const [error, setError] = useState("");
+  
+  const handleAccess = () => {
+    if (activePortal === "Admin") {
+      if (passcode === "og123") {
+        window.location.href = `/admin?role=Admin&auth=og123`;
+      } else {
+        setError("Invalid passcode. Please try again.");
+      }
+    } else {
+      // For Donor/NGO just allow for now as per current mock behavior
+      window.location.href = `/admin?role=${activePortal}&auth=og123`;
     }
-  }, [user, router, isHydrated]);
+  };
 
-  if (loading || !isHydrated) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="animate-spin text-primary" size={40} />
-      </div>
-    );
-  }
-
-  // User is authenticated, show redirect message
-  if (user) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-slate-400 mb-4">Redirecting you to your dashboard...</p>
-          <Loader2 className="animate-spin text-primary mx-auto" size={40} />
-        </div>
-      </div>
-    );
-  }
-
-  // User is not authenticated, show portal selection
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const type = params.get("type");
+    if (type === "Admin" || type === "Donor" || type === "NGO") {
+      setActivePortal(type as any);
+    }
+  }, []);
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-black relative flex flex-col font-sans selection:bg-primary/30 pt-16">
@@ -160,6 +140,131 @@ export default function PortalsPage() {
           </div>
         </div>
       </section>
+
+      {/* ── Interactive Inline Portal Modal ── */}
+      <AnimatePresence>
+        {activePortal && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="absolute inset-0 bg-black/60 backdrop-blur-xl"
+              onClick={() => setActivePortal(null)}
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 20 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.95, opacity: 0, y: 20 }}
+              className={`relative w-full max-w-3xl bg-[#111] border border-white/10 rounded-[2.5rem] p-16 shadow-2xl overflow-hidden`}
+            >
+              {/* Animated Bubbles Inside Modal */}
+              <div className="absolute inset-0 pointer-events-none z-0 opacity-40">
+                {bubbles.map((b, i) => (
+                  <motion.div
+                    key={i}
+                    className="absolute rounded-full blur-[80px]"
+                    style={{
+                      width: b.size * 0.8,
+                      height: b.size * 0.8,
+                      left: b.left,
+                      top: b.top,
+                      background: b.color,
+                    }}
+                    animate={{
+                      x: b.xPath,
+                      y: b.yPath,
+                      scale: [1, 1.2, 0.8, 1],
+                    }}
+                    transition={{
+                      duration: b.duration,
+                      repeat: Infinity,
+                      ease: "linear",
+                    }}
+                  />
+                ))}
+              </div>
+
+              {/* Dynamic Theme Glow based on Portal */}
+              <div className={`absolute top-0 left-0 w-full h-3 z-10 ${
+                activePortal === "Admin" ? "bg-primary" : 
+                activePortal === "Donor" ? "bg-emerald-500" : "bg-amber-500"
+              }`} />
+              
+              <button 
+                onClick={() => setActivePortal(null)}
+                className="absolute top-8 right-8 text-slate-500 hover:text-white transition-colors bg-white/5 p-4 rounded-full hover:bg-white/10 z-20"
+              >
+                <X size={28} />
+              </button>
+
+              <div className={`relative z-10 w-24 h-24 rounded-[2rem] flex items-center justify-center mb-10 shadow-2xl ${
+                activePortal === "Admin" ? "bg-primary/20 text-primary border border-primary/30" : 
+                activePortal === "Donor" ? "bg-emerald-500/20 text-emerald-500 border border-emerald-500/30" : 
+                "bg-amber-500/20 text-amber-500 border border-amber-500/30"
+              }`}>
+                {activePortal === "Admin" && <ShieldCheck size={48} />}
+                {activePortal === "Donor" && <Package size={48} />}
+                {activePortal === "NGO" && <Heart size={48} />}
+              </div>
+
+              <h2 className="relative z-10 text-5xl font-black text-white mb-4 tracking-tight">{activePortal} Portal</h2>
+              <p className="relative z-10 text-xl text-slate-400 mb-10 leading-relaxed max-w-2xl">
+                {activePortal === "Admin" && "Enter your secure passcode to access the logistics dashboard."}
+                {activePortal === "Donor" && "Sign in to list surplus food and track your donation history."}
+                {activePortal === "NGO" && "Login to view active food rescues in your immediate area."}
+              </p>
+
+              <div className="relative z-10 space-y-6">
+                {activePortal === "Admin" ? (
+                  <div className="relative">
+                    <input 
+                      type="password" 
+                      value={passcode}
+                      onChange={(e) => { setPasscode(e.target.value); setError(""); }}
+                      placeholder="Enter Admin Passcode" 
+                      className={`w-full bg-black/60 border ${error ? 'border-red-500' : 'border-white/10'} focus:border-primary focus:ring-2 focus:ring-primary rounded-2xl py-6 px-8 text-2xl text-white font-medium outline-none transition-all placeholder:text-slate-600`}
+                    />
+                    {error && <p className="text-red-400 text-sm mt-3 ml-2 font-bold animate-pulse">{error}</p>}
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <input 
+                      type="email" 
+                      defaultValue={activePortal === "Donor" ? "manager@tajhotels.com" : "volunteer@robinhoodarmy.com"}
+                      placeholder="Email Address" 
+                      className={`w-full bg-black/60 border border-white/10 rounded-2xl py-6 px-8 text-2xl text-white font-medium outline-none transition-all placeholder:text-slate-600 focus:ring-2 ${
+                        activePortal === "Donor" ? "focus:border-emerald-500 focus:ring-emerald-500" : "focus:border-amber-500 focus:ring-amber-500"
+                      }`}
+                    />
+                    <input 
+                      type="password" 
+                      defaultValue="password123"
+                      placeholder="Password" 
+                      className={`w-full bg-black/60 border border-white/10 rounded-2xl py-6 px-8 text-2xl text-white font-medium outline-none transition-all placeholder:text-slate-600 focus:ring-2 ${
+                        activePortal === "Donor" ? "focus:border-emerald-500 focus:ring-emerald-500" : "focus:border-amber-500 focus:ring-amber-500"
+                      }`}
+                    />
+                  </div>
+                )}
+                
+                <div className="pt-8">
+                  <button 
+                    onClick={handleAccess}
+                    className={`flex w-full py-6 text-white font-black text-2xl rounded-2xl transition-all shadow-xl items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] ${
+                      activePortal === "Admin" ? "bg-primary hover:bg-primary/90 shadow-[0_0_40px_rgba(59,130,246,0.3)]" : 
+                      activePortal === "Donor" ? "bg-emerald-500 hover:bg-emerald-600 shadow-[0_0_40px_rgba(16,185,129,0.3)]" : 
+                      "bg-amber-500 hover:bg-amber-600 shadow-[0_0_40px_rgba(245,158,11,0.3)]"
+                    }`}
+                  >
+                    Access Dashboard <ArrowRight size={28} />
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
