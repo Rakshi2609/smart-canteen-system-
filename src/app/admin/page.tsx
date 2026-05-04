@@ -203,6 +203,24 @@ export default function UnifiedPortal() {
     return () => clearInterval(interval);
   }, []);
 
+  // audit log helper: declare as function to allow use before this point
+  async function addAuditLog(action: string, roleLog: string, details: string) {
+    const entry = { id: `L-${Date.now()}`, time: new Date().toLocaleTimeString(), action, role: roleLog, details };
+
+    setAuditLogs(prev => [entry, ...prev]);
+
+    try {
+      await fetch("/api/audit-logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(entry),
+      });
+      fetchAuditLogs();
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   useEffect(() => {
     const derivedNotifications = [
       ...orders
@@ -295,22 +313,7 @@ export default function UnifiedPortal() {
     return null;
   }
 
-  const addAuditLog = async (action: string, roleLog: string, details: string) => {
-    const entry = { id: `L-${Date.now()}`, time: new Date().toLocaleTimeString(), action, role: roleLog, details };
-
-    setAuditLogs(prev => [entry, ...prev]);
-
-    try {
-      await fetch("/api/audit-logs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(entry),
-      });
-      fetchAuditLogs();
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  // keep helper as function declared above; this placeholder kept for reference
 
   const notify = (title: string, desc: string) => {
     setToastMessage({ title, desc });
