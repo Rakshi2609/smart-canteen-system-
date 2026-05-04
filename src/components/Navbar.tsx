@@ -3,9 +3,15 @@
 import Link from 'next/link';
 import { Map, LayoutDashboard, Utensils, LogOut, User as UserIcon, Package, Heart } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEffect, useState } from 'react';
 
 export default function Navbar() {
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   return (
     <nav className="fixed top-0 w-full z-50 glass border-b border-white/10 px-6 py-4">
@@ -22,7 +28,7 @@ export default function Navbar() {
           <Link href="/support" className="flex items-center gap-2 text-lg font-bold text-pink-400 hover:text-pink-300 transition-colors bg-pink-500/10 px-4 py-2 rounded-xl">
             <span>Support ❤️</span>
           </Link>
-          {user ? (
+          {isHydrated && user ? (
             <>
               {/* Role-based dashboard link */}
               {user.role === "Admin" ? (

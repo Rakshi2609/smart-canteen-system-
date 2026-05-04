@@ -49,12 +49,6 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin", request.url));
   }
 
-  // Role-based access control for specific routes
-  const adminOnlyRoutes = ["/api/auth/register"]; // Require Admin role
-  if (adminOnlyRoutes.some(route => pathname.startsWith(route)) && decodedToken?.role !== "Admin") {
-    return NextResponse.json({ error: "Access Denied" }, { status: 403 });
-  }
-
   return NextResponse.next();
 }
 
