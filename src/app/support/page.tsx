@@ -339,7 +339,7 @@ export default function SupportPage() {
                           const file = new File([blob], `payment-${paymentId}.png`, { type: 'image/png' });
 
                           // Try Web Share with files
-                          if (navigator.canShare && (navigator as any).canShare({ files: [file] })) {
+                          if (typeof (navigator as any).canShare === 'function' && (navigator as any).canShare({ files: [file] })) {
                             await (navigator as any).share({ files: [file], title: `Payment ${paymentId}`, text: `Pay ₹${amount} to ${selectedEntity}` });
                             return;
                           }
