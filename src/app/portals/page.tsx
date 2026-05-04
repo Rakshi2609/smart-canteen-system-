@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
 const bubbles = [
-  { size: 250, left: "5%",  top: "20%", duration: 18, color: "rgba(59,130,246,0.2)", xPath: [0, 200, -100, 0], yPath: [0, -200, 150, 0] },
+  { size: 250, left: "5%", top: "20%", duration: 18, color: "rgba(59,130,246,0.2)", xPath: [0, 200, -100, 0], yPath: [0, -200, 150, 0] },
   { size: 300, left: "30%", top: "60%", duration: 22, color: "rgba(16,185,129,0.15)", xPath: [0, -150, 200, 0], yPath: [0, 150, -100, 0] },
   { size: 200, left: "70%", top: "30%", duration: 15, color: "rgba(245,158,11,0.15)", xPath: [0, 100, -200, 0], yPath: [0, -100, 200, 0] },
   { size: 280, left: "80%", top: "70%", duration: 20, color: "rgba(59,130,246,0.15)", xPath: [0, -200, 100, 0], yPath: [0, 200, -150, 0] },
@@ -64,7 +64,7 @@ export default function PortalsPage() {
 
   return (
     <div className="min-h-[calc(100vh-80px)] bg-black relative flex flex-col font-sans selection:bg-primary/30 pt-16">
-      
+
       {/* ── Fixed Interactive Background Bubbles ── */}
       <div className="fixed inset-0 pointer-events-none z-0">
         {bubbles.map((b, i) => (
@@ -152,7 +152,7 @@ export default function PortalsPage() {
               </div>
             </motion.div>
           </div>
-          
+
           <div className="text-center mt-12 space-y-4">
             <p className="text-slate-400">
               Already have an account? <Link href="/login" className="text-primary hover:underline font-bold">Sign in</Link>

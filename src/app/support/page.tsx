@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import QRCode from "react-qr-code";
 import { Heart, Coins, CheckCircle2, AlertCircle, X, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,6 +28,8 @@ export default function SupportPage() {
   const [amount, setAmount] = useState<number | "custom" | "">("");
   const [customAmount, setCustomAmount] = useState<string>("");
   const [isVerifying, setIsVerifying] = useState(false);
+  const [paymentId, setPaymentId] = useState<string | null>(null);
+  const qrRef = useRef<HTMLDivElement | null>(null);
 
   const handleOpenModal = (entityName: string) => {
     setSelectedEntity(entityName);
@@ -41,12 +43,47 @@ export default function SupportPage() {
     const finalAmount = amount === "custom" ? parseInt(customAmount) : amount;
     if (!finalAmount || isNaN(finalAmount as number) || finalAmount <= 0) return;
     setAmount(finalAmount as number);
+    // create a short unique payment id
+    const id = typeof crypto !== "undefined" && (crypto as any).randomUUID ? (crypto as any).randomUUID() : `p_${Date.now()}_${Math.floor(Math.random()*9000)+1000}`;
+    setPaymentId(id);
+
+    // persist payment record as Pending
+    try {
+      fetch('/api/payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          paymentId: id,
+          amount: finalAmount,
+          recipient: selectedEntity || 'Unknown',
+          status: 'Pending',
+          method: 'UPI',
+          payload: { upi: `upi://pay?pa=rescueflow@ybl&pn=${encodeURIComponent(selectedEntity)}&am=${finalAmount}&cu=INR&tn=${id}` }
+        })
+      }).catch(err => console.error('Create payment failed', err));
+    } catch (e) {
+      console.error('Create payment exception', e);
+    }
+
     setPaymentStep("qr");
   };
 
   const handleScanSuccess = () => {
     setIsVerifying(true);
-    setTimeout(() => {
+    setTimeout(async () => {
+      // mark payment as completed in DB
+      try {
+        if (paymentId) {
+          await fetch(`/api/payments/${paymentId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: 'Completed' }),
+          });
+        }
+      } catch (e) {
+        console.error('Update payment status failed', e);
+      }
+
       setIsVerifying(false);
       setPaymentStep("success");
       setTimeout(() => {
@@ -248,8 +285,86 @@ export default function SupportPage() {
                   <h2 className="text-2xl font-bold text-white mb-2">Scan to Pay</h2>
                   <p className="text-sm text-slate-400 mb-8">Open any UPI App on your phone and scan</p>
                   
-                  <div className="bg-white p-4 rounded-2xl shadow-xl mb-8">
-                    <QRCode value={`upi://pay?pa=rescueflow@ybl&pn=${encodeURIComponent(selectedEntity)}&am=${amount}&cu=INR`} size={200} />
+                  <div className="bg-white p-4 rounded-2xl shadow-xl mb-4" ref={qrRef}>
+                    {/* Embed payment id into the payload so the QR is shareable */}
+                    <QRCode value={
+                      // we include both a UPI payload and a fallback shareable URL containing the payment id
+                      `upi://pay?pa=rescueflow@ybl&pn=${encodeURIComponent(selectedEntity)}&am=${amount}&cu=INR&tn=${paymentId}`
+                    } size={200} />
+                  </div>
+
+                  <div className="mb-6 text-sm text-slate-400">
+                    <div>Payment ID: <span className="text-white font-mono">{paymentId}</span></div>
+                  </div>
+
+                  <div className="flex gap-3 mb-6 w-full">
+                    <button
+                      onClick={async () => {
+                        const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/support/payment/${paymentId}`;
+                        if (navigator.share) {
+                          try {
+                            await navigator.share({ title: 'Payment', text: `Pay ₹${amount} to ${selectedEntity}`, url: shareUrl });
+                          } catch (e) {
+                            // ignore
+                          }
+                        } else {
+                          await navigator.clipboard.writeText(shareUrl);
+                          alert('Link copied to clipboard');
+                        }
+                      }}
+                      className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold"
+                    >
+                      Share Payment
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/support/payment/${paymentId}`;
+                        await navigator.clipboard.writeText(shareUrl);
+                        alert('Link copied to clipboard');
+                      }}
+                      className="flex-1 py-2 bg-white/5 hover:bg-white/10 text-slate-200 rounded-xl font-bold border border-white/5"
+                    >
+                      Copy Link
+                    </button>
+                  </div>
+
+                  <div className="w-full flex gap-3 mb-8">
+                    <button
+                      onClick={() => {
+                        // Download the QR as PNG by serializing SVG and drawing to canvas
+                        try {
+                          const svg = qrRef.current?.querySelector('svg');
+                          if (!svg) return;
+                          const serializer = new XMLSerializer();
+                          const svgString = serializer.serializeToString(svg);
+                          const canvas = document.createElement('canvas');
+                          const size = 400;
+                          canvas.width = size;
+                          canvas.height = size;
+                          const ctx = canvas.getContext('2d');
+                          const img = new Image();
+                          const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+                          const url = URL.createObjectURL(svgBlob);
+                          img.onload = () => {
+                            ctx?.fillRect(0,0,size,size);
+                            ctx?.drawImage(img, 0, 0, size, size);
+                            URL.revokeObjectURL(url);
+                            const pngUrl = canvas.toDataURL('image/png');
+                            const a = document.createElement('a');
+                            a.href = pngUrl;
+                            a.download = `payment-${paymentId}.png`;
+                            a.click();
+                          };
+                          img.src = url;
+                        } catch (e) {
+                          console.error(e);
+                        }
+                      }}
+                      className="w-full py-3 bg-white/5 hover:bg-white/10 text-slate-200 rounded-xl font-bold border border-white/5"
+                    >
+                      Download QR
+                    </button>
                   </div>
                   
                   <div className="flex items-center justify-between w-full p-4 bg-black/40 rounded-xl border border-white/5 mb-8">
