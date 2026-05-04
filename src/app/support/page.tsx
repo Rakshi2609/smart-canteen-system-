@@ -301,16 +301,78 @@ export default function SupportPage() {
                   <div className="flex gap-3 mb-6 w-full">
                     <button
                       onClick={async () => {
-                        const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/support/payment/${paymentId}`;
-                        if (navigator.share) {
-                          try {
-                            await navigator.share({ title: 'Payment', text: `Pay ₹${amount} to ${selectedEntity}`, url: shareUrl });
-                          } catch (e) {
-                            // ignore
+                        try {
+                          const svg = qrRef.current?.querySelector('svg');
+                          if (!svg) throw new Error('QR not ready');
+
+                          // serialize SVG
+                          const serializer = new XMLSerializer();
+                          const svgString = serializer.serializeToString(svg);
+
+                          // draw to canvas
+                          const canvas = document.createElement('canvas');
+                          const size = 800; // higher resolution for sharing
+                          canvas.width = size;
+                          canvas.height = size;
+                          const ctx = canvas.getContext('2d');
+                          const img = new Image();
+                          const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+                          const url = URL.createObjectURL(svgBlob);
+
+                          await new Promise<void>((resolve, reject) => {
+                            img.onload = () => {
+                              try {
+                                ctx?.fillRect(0,0,size,size);
+                                ctx?.drawImage(img, 0, 0, size, size);
+                                URL.revokeObjectURL(url);
+                                resolve();
+                              } catch (e) { reject(e); }
+                            };
+                            img.onerror = (e) => reject(e);
+                            img.src = url;
+                          });
+
+                          // get blob
+                          const blob: Blob | null = await new Promise((res) => canvas.toBlob(res, 'image/png'));
+                          if (!blob) throw new Error('Failed to create image');
+
+                          const file = new File([blob], `payment-${paymentId}.png`, { type: 'image/png' });
+
+                          // Try Web Share with files
+                          if (navigator.canShare && (navigator as any).canShare({ files: [file] })) {
+                            await (navigator as any).share({ files: [file], title: `Payment ${paymentId}`, text: `Pay ₹${amount} to ${selectedEntity}` });
+                            return;
                           }
-                        } else {
+
+                          // Fallback: invoke navigator.share with url if available
+                          const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : ''}/support/payment/${paymentId}`;
+                          if (navigator.share) {
+                            try {
+                              await navigator.share({ title: `Payment ${paymentId}`, text: `Pay ₹${amount} to ${selectedEntity}`, url: shareUrl });
+                              return;
+                            } catch (e) {
+                              // continue to clipboard fallback
+                            }
+                          }
+
+                          // Fallback: copy image to clipboard if supported
+                          if ((navigator as any).clipboard && (navigator as any).clipboard.write && (window as any).ClipboardItem) {
+                            try {
+                              // copy blob as image/png
+                              await (navigator as any).clipboard.write([new ClipboardItem({ ['image/png']: blob })]);
+                              alert('QR image copied to clipboard');
+                              return;
+                            } catch (e) {
+                              // continue
+                            }
+                          }
+
+                          // Final fallback: copy share URL and open download
                           await navigator.clipboard.writeText(shareUrl);
-                          alert('Link copied to clipboard');
+                          alert('Link copied to clipboard. If you want the image, use Download QR.');
+                        } catch (e) {
+                          console.error(e);
+                          alert('Failed to share QR. Please use Download QR.');
                         }
                       }}
                       className="flex-1 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold"
