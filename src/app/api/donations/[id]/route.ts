@@ -11,7 +11,16 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const body = await req.json();
 
     const oldDonation = await Donation.findOne({ id });
-    const updatedDonation = await Donation.findOneAndUpdate({ id }, body, { new: true });
+    const updatePayload = {
+      ...body,
+      assignedAt: body.status === "Pickup Assigned"
+        ? (oldDonation?.assignedAt || new Date())
+        : (body.assignedAt ?? oldDonation?.assignedAt),
+      completedAt: body.status === "Completed"
+        ? (oldDonation?.completedAt || new Date())
+        : (body.completedAt ?? oldDonation?.completedAt),
+    };
+    const updatedDonation = await Donation.findOneAndUpdate({ id }, updatePayload, { new: true, runValidators: true });
     
     if (!updatedDonation) {
       return NextResponse.json({ error: "Donation not found" }, { status: 404 });

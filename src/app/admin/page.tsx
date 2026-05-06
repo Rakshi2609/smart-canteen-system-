@@ -28,6 +28,8 @@ type UnifiedOrder = {
   distance: string;
   status: OrderStatus;
   volunteerName?: string;
+  donorName?: string;
+  ngoName?: string;
   donorId?: string;
   ngoId?: string;
   donorLocation?: LocationPoint;
@@ -113,6 +115,7 @@ export default function UnifiedPortal() {
   const { user, loading, refreshUser } = useAuth();
   const [isMounted, setIsMounted] = useState(false);
   const [role, setRole] = useState<Role>(null);
+  const adminPasscode = process.env.NEXT_PUBLIC_ADMIN_PASSCODE ?? "og123";
   
   useEffect(() => {
     setIsMounted(true);
@@ -182,7 +185,7 @@ export default function UnifiedPortal() {
   
   const fetchOrders = async () => {
     try {
-      const res = await fetch("/api/donations");
+      const res = await fetch("/api/donations", { cache: "no-store" });
       const data = await res.json();
       if (Array.isArray(data)) setOrders(data);
     } catch (e) {
@@ -345,7 +348,7 @@ export default function UnifiedPortal() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode === "og123") { setIsAuthenticated(true); setError(""); addAuditLog("LOGIN", "Admin", "Admin dashboard accessed"); }
+    if (passcode === adminPasscode) { setIsAuthenticated(true); setError(""); addAuditLog("LOGIN", "Admin", "Admin dashboard accessed"); }
     else { setError("Incorrect passcode."); }
   };
 
@@ -414,7 +417,7 @@ export default function UnifiedPortal() {
           </div>
           <form onSubmit={handleAdminLogin} className="space-y-4">
             <div>
-              <input type="password" value={passcode} onChange={(e) => setPasscode(e.target.value)} placeholder="Passcode (og123)" className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-primary" />
+              <input type="password" value={passcode} onChange={(e) => setPasscode(e.target.value)} placeholder={`Passcode (${adminPasscode})`} className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-1 focus:ring-primary" />
               {error && <p className="text-red-400 text-sm mt-2 text-left">{error}</p>}
             </div>
             <button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-3 rounded-xl shadow-lg shadow-primary/20">Access Dashboard</button>
@@ -527,6 +530,7 @@ export default function UnifiedPortal() {
                     id: reqId, orderType: "Donation", foodType: donorForm.type, foodName: donorForm.name, quantity: donorForm.quantity,
                     cookedTime: donorForm.time, expiryTime: Date.now() + donorForm.spoilageMins * 60000, distance: "0.0 km", status: "Waiting",
                     donorLocation,
+                    donorName: user?.name || "",
                     donorId: user?.id
                   };
                   
@@ -535,8 +539,10 @@ export default function UnifiedPortal() {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(newOrder)
-                  }).then(() => {
-                    setOrders(prev => [newOrder, ...prev]);
+                  }).then(async (response) => {
+                    if (!response.ok) throw new Error("Failed to publish donation");
+                    const savedDonation = await response.json();
+                    setOrders(prev => [savedDonation, ...prev]);
                     addAuditLog("DONATION_CREATED", "Donor", `Created donation ${reqId} for ${donorForm.name} at ${donorLocation.address}`);
                     notify("Success!", "Donation published globally with location.");
                     setDonorTab("history");
@@ -637,8 +643,10 @@ export default function UnifiedPortal() {
                       method: 'PUT',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify(editingOrder)
-                    }).then(() => {
-                      setOrders(prev => prev.map(o => o.id === editingOrder.id ? editingOrder : o));
+                    }).then(async (response) => {
+                      if (!response.ok) throw new Error("Failed to save donation changes");
+                      const savedDonation = await response.json();
+                      setOrders(prev => prev.map(o => o.id === editingOrder.id ? savedDonation : o));
                       addAuditLog("DONATION_EDITED", "Donor", `Edited donation ${editingOrder.id}`);
                       notify("Updated", "Donation details saved.");
                       setEditingOrder(null);
@@ -768,7 +776,7 @@ export default function UnifiedPortal() {
             <div className="p-8">
               <h2 className="text-2xl font-bold text-white mb-6">My Assigned Deliveries</h2>
               <div className="space-y-4">
-                {donationOrders.filter(r => r.status === "Pickup Assigned" && (r.ngoId === user?.id || r.volunteerName === "You (NGO)")).map(req => (
+                {donationOrders.filter(r => r.status === "Pickup Assigned" && r.ngoId === user?.id).map(req => (
                   <div key={req.id} className="bg-emerald-500/10 border border-emerald-500/20 p-6 rounded-2xl flex justify-between items-center">
                     <div>
                       <h3 className="text-xl font-bold text-emerald-400">{req.foodName}</h3>
@@ -786,8 +794,10 @@ export default function UnifiedPortal() {
                           method: 'PUT',
                           headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({ status: "Completed" })
-                        }).then(() => {
-                          setOrders(prev => prev.map(o => o.id === req.id ? {...o, status: "Completed"} : o));
+                        }).then(async (response) => {
+                          if (!response.ok) throw new Error("Failed to complete delivery");
+                          const savedDonation = await response.json();
+                          setOrders(prev => prev.map(o => o.id === req.id ? savedDonation : o));
                           if(activeRouteOrder?.id === req.id) setActiveRouteOrder(null);
                           addAuditLog("PICKUP_COMPLETED", "NGO", `Delivery completed for ${req.id}`);
                           refreshUser();
@@ -816,15 +826,16 @@ export default function UnifiedPortal() {
                    <label className="block text-sm font-medium text-slate-400 mb-2">NGO / Drop-off Address</label>
                    <AddressSearch placeholder="Type your address..." onSelect={(loc) => {
                      // Proceed to accept
-                     const updatedOrder = { ...acceptingOrder, status: "Pickup Assigned" as OrderStatus, volunteerName: user?.name || "You (NGO)", ngoLocation: loc, ngoId: user?.id };
+                     const updatedOrder = { ...acceptingOrder, status: "Pickup Assigned" as OrderStatus, volunteerName: user?.name || "", ngoName: user?.name || "", ngoLocation: loc, ngoId: user?.id };
                      
                      fetch(`/api/donations/${acceptingOrder.id}`, {
                        method: 'PUT',
                        headers: { 'Content-Type': 'application/json' },
                        body: JSON.stringify(updatedOrder)
-                     }).then(() => {
-                       setOrders(prev => prev.map(o => o.id === acceptingOrder.id ? updatedOrder : o));
-                       setMealsSaved(prev => prev + acceptingOrder.quantity);
+                     }).then(async (response) => {
+                       if (!response.ok) throw new Error("Failed to assign pickup");
+                       const savedDonation = await response.json();
+                       setOrders(prev => prev.map(o => o.id === acceptingOrder.id ? savedDonation : o));
                        addAuditLog("PICKUP_ACCEPTED", "NGO", `NGO assigned to ${acceptingOrder.id}. Routing to ${loc.address}`);
                        setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `NGO accepted your pickup! En-route to ${loc.address}.`, read: false}, ...n]);
                        

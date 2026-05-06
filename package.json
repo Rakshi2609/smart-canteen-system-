@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:env": "node scripts/test-env.mjs",
+    "test:services": "node scripts/test-services.mjs",
+    "seed:admin": "node scripts/seed-admin.mjs",
+    "test:portals": "node scripts/test-portals.mjs"
   },
   "dependencies": {
     "@react-google-maps/api": "^2.20.8",
