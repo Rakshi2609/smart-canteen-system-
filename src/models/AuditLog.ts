@@ -6,6 +6,7 @@ export interface IAuditLog extends Document {
   action: string;
   role: string;
   details: string;
+  type?: "info" | "success" | "warning" | "error";
   createdAt: Date;
 }
 
@@ -16,6 +17,7 @@ const AuditLogSchema = new Schema<IAuditLog>(
     action: { type: String, required: true },
     role: { type: String, required: true },
     details: { type: String, required: true },
+    type: { type: String, enum: ["info", "success", "warning", "error"], default: "info" },
   },
   { timestamps: true }
 );
