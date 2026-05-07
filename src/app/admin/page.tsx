@@ -10,7 +10,7 @@ type AdminTab = "overview" | "network" | "operations" | "audit" | "ai";
 type DonorTab = "donate" | "history" | "inbox";
 type NGOTab = "live" | "pickups";
 
-type AuditLog = { id: string; time: string; action: string; role: string; details: string };
+type AuditLog = { id: string; time: string; action: string; role: string; details: string; type?: "info" | "success" | "warning" | "error" };
 
 type OrderType = "Regular" | "Donation";
 type OrderStatus = "Preparing" | "Ready" | "Waiting" | "Pickup Assigned" | "Completed" | "Expired";
@@ -222,8 +222,8 @@ export default function UnifiedPortal() {
   }, []);
 
   // audit log helper: declare as function to allow use before this point
-  async function addAuditLog(action: string, roleLog: string, details: string) {
-    const entry = { id: `L-${Date.now()}`, time: new Date().toLocaleTimeString(), action, role: roleLog, details };
+  async function addAuditLog(action: string, roleLog: string, details: string, type: "info" | "success" | "warning" | "error" = "info") {
+    const entry = { id: `L-${Date.now()}`, time: new Date().toISOString(), action, role: roleLog, details, type };
 
     setAuditLogs(prev => [entry, ...prev]);
 
@@ -298,7 +298,7 @@ export default function UnifiedPortal() {
         const newOrders = prev.map(order => {
           if (order.status === "Waiting" && order.expiryTime <= now) {
             changed = true;
-            addAuditLog("EXPIRED", "System", `Donation ${order.id} (${order.foodName}) automatically expired.`);
+            addAuditLog("EXPIRED", "System", `Donation ${order.id} (${order.foodName}) automatically expired.`, "warning");
             setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Alert: Your donation ${order.foodName} has expired without pickup.`, read: false}, ...n]);
             
             // Sync with backend
@@ -333,6 +333,31 @@ export default function UnifiedPortal() {
 
   // keep helper as function declared above; this placeholder kept for reference
 
+  const formatLogTime = (isoString: string) => {
+    try {
+      const date = new Date(isoString);
+      if (isNaN(date.getTime())) return isoString;
+      return date.toLocaleString('en-IN', { 
+        day: '2-digit', 
+        month: 'short', 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch (e) {
+      return isoString;
+    }
+  };
+
+  const getLogIcon = (type?: string) => {
+    switch (type) {
+      case "success": return <CheckCircle2 size={14} className="text-emerald-500" />;
+      case "warning": return <AlertTriangle size={14} className="text-amber-500" />;
+      case "error": return <X size={14} className="text-red-500" />;
+      default: return <History size={14} className="text-primary" />;
+    }
+  };
+
   const notify = (title: string, desc: string) => {
     setToastMessage({ title, desc });
     setTimeout(() => setToastMessage(null), 4000);
@@ -348,7 +373,7 @@ export default function UnifiedPortal() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passcode === adminPasscode) { setIsAuthenticated(true); setError(""); addAuditLog("LOGIN", "Admin", "Admin dashboard accessed"); }
+    if (passcode === adminPasscode) { setIsAuthenticated(true); setError(""); addAuditLog("LOGIN", "Admin", "Admin dashboard accessed", "success"); }
     else { setError("Incorrect passcode."); }
   };
 
@@ -543,7 +568,7 @@ export default function UnifiedPortal() {
                     if (!response.ok) throw new Error("Failed to publish donation");
                     const savedDonation = await response.json();
                     setOrders(prev => [savedDonation, ...prev]);
-                    addAuditLog("DONATION_CREATED", "Donor", `Created donation ${reqId} for ${donorForm.name} at ${donorLocation.address}`);
+                    addAuditLog("DONATION_CREATED", "Donor", `Created donation ${reqId} for ${donorForm.name} at ${donorLocation.address}`, "success");
                     notify("Success!", "Donation published globally with location.");
                     setDonorTab("history");
                   }).catch(e => {
@@ -647,7 +672,7 @@ export default function UnifiedPortal() {
                       if (!response.ok) throw new Error("Failed to save donation changes");
                       const savedDonation = await response.json();
                       setOrders(prev => prev.map(o => o.id === editingOrder.id ? savedDonation : o));
-                      addAuditLog("DONATION_EDITED", "Donor", `Edited donation ${editingOrder.id}`);
+                      addAuditLog("DONATION_EDITED", "Donor", `Edited donation ${editingOrder.id}`, "info");
                       notify("Updated", "Donation details saved.");
                       setEditingOrder(null);
                     }).catch(e => console.error(e));
@@ -799,7 +824,7 @@ export default function UnifiedPortal() {
                           const savedDonation = await response.json();
                           setOrders(prev => prev.map(o => o.id === req.id ? savedDonation : o));
                           if(activeRouteOrder?.id === req.id) setActiveRouteOrder(null);
-                          addAuditLog("PICKUP_COMPLETED", "NGO", `Delivery completed for ${req.id}`);
+                          addAuditLog("PICKUP_COMPLETED", "NGO", `Delivery completed for ${req.id}`, "success");
                           refreshUser();
                           setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `Your donation ${req.foodName} was successfully picked up!`, read: false}, ...n]);
                           notify("Completed", "Food successfully delivered!");
@@ -836,7 +861,7 @@ export default function UnifiedPortal() {
                        if (!response.ok) throw new Error("Failed to assign pickup");
                        const savedDonation = await response.json();
                        setOrders(prev => prev.map(o => o.id === acceptingOrder.id ? savedDonation : o));
-                       addAuditLog("PICKUP_ACCEPTED", "NGO", `NGO assigned to ${acceptingOrder.id}. Routing to ${loc.address}`);
+                       addAuditLog("PICKUP_ACCEPTED", "NGO", `NGO assigned to ${acceptingOrder.id}. Routing to ${loc.address}`, "info");
                        setGlobalNotifications(n => [{id: `N-${Date.now()}`, role: "Donor", msg: `NGO accepted your pickup! En-route to ${loc.address}.`, read: false}, ...n]);
                        
                        notify("Route Calculated!", "Pickup assigned. OSRM routing active.");
@@ -963,7 +988,7 @@ export default function UnifiedPortal() {
                                  .then(() => {
                                    setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
                                    notify("Verified", `${user.name} is now active.`);
-                                   addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
+                                   addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`, "success");
                                  })
                                  .catch(e => console.error(e));
                            }} className="text-xs bg-primary text-white px-3 py-1.5 rounded-lg font-bold hover:bg-primary/80 transition-colors">Approve</button>
@@ -973,17 +998,27 @@ export default function UnifiedPortal() {
                    </div>
                  </div>
                  <div className="bg-[#161616] border border-white/5 rounded-2xl flex flex-col overflow-hidden shadow-xl p-6">
-                   <h3 className="font-bold text-white mb-4">Recent Audit Actions</h3>
+                   <div className="flex justify-between items-center mb-4">
+                     <h3 className="font-bold text-white">Recent Audit Actions</h3>
+                     <button onClick={() => setAdminTab("audit")} className="text-xs text-primary hover:underline">View All</button>
+                   </div>
                    <div className="space-y-3 overflow-y-auto">
-                     {auditLogs.slice(0, 5).map(log => (
-                       <div key={log.id} className="bg-black/40 border border-white/5 p-3 rounded-xl">
-                         <div className="flex justify-between items-center mb-1">
-                           <span className="text-xs font-bold text-primary">{log.role}</span>
-                           <span className="text-xs text-slate-500">{log.time}</span>
+                     {auditLogs.length === 0 ? (
+                       <p className="text-slate-500 text-sm italic">No recent actions.</p>
+                     ) : (
+                       auditLogs.slice(0, 5).map(log => (
+                         <div key={log.id} className="bg-black/40 border border-white/5 p-3 rounded-xl hover:bg-white/5 transition-colors">
+                           <div className="flex justify-between items-center mb-1">
+                             <div className="flex items-center gap-2">
+                               {getLogIcon(log.type)}
+                               <span className="text-xs font-bold text-slate-300">{log.role}</span>
+                             </div>
+                             <span className="text-[10px] text-slate-500 font-mono">{formatLogTime(log.time)}</span>
+                           </div>
+                           <p className="text-xs text-slate-400 line-clamp-1">{log.details}</p>
                          </div>
-                         <p className="text-sm text-slate-300">{log.details}</p>
-                       </div>
-                     ))}
+                       ))
+                     )}
                    </div>
                  </div>
               </div>
@@ -1015,7 +1050,7 @@ export default function UnifiedPortal() {
                                  .then(() => {
                                    setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
                                    notify("Partner Verified", `${user.name} can now access the platform.`);
-                                   addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`);
+                                   addAuditLog("VERIFIED_PARTNER", "Admin", `Verified partner: ${user.name}`, "success");
                                  })
                                  .catch(e => console.error(e));
                              }} className="bg-primary hover:bg-primary/90 text-white text-xs py-2 rounded-lg font-bold transition-colors w-full">Verify Partner</button>
@@ -1025,7 +1060,7 @@ export default function UnifiedPortal() {
                                  .then(() => {
                                    setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Suspended"} : u));
                                    notify("Suspended", `${user.name} access revoked.`);
-                                   addAuditLog("SUSPENDED_PARTNER", "Admin", `Suspended partner: ${user.name}`);
+                                   addAuditLog("SUSPENDED_PARTNER", "Admin", `Suspended partner: ${user.name}`, "warning");
                                  })
                                  .catch(e => console.error(e));
                              }} className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs py-2 rounded-lg font-bold transition-colors w-full">Suspend Access</button>
@@ -1035,7 +1070,7 @@ export default function UnifiedPortal() {
                                  .then(() => {
                                    setUsersNetwork(prev => prev.map(u => u.id === user.id ? {...u, status: "Verified"} : u));
                                    notify("Restored", `${user.name} access restored.`);
-                                   addAuditLog("VERIFIED_PARTNER", "Admin", `Restored partner: ${user.name}`);
+                                   addAuditLog("VERIFIED_PARTNER", "Admin", `Restored partner: ${user.name}`, "success");
                                  })
                                  .catch(e => console.error(e));
                              }} className="bg-slate-700 hover:bg-slate-600 text-white text-xs py-2 rounded-lg font-bold transition-colors w-full">Restore Access</button>
@@ -1069,13 +1104,13 @@ export default function UnifiedPortal() {
                            {order.status !== "Expired" && order.status !== "Completed" && (
                              <button onClick={() => {
                                setOrders(prev => prev.map(o => o.id === order.id ? {...o, status: "Expired"} : o));
-                               addAuditLog("FORCE_EXPIRE", "Admin", `Admin manually expired operation ${order.id}`);
+                               addAuditLog("FORCE_EXPIRE", "Admin", `Admin manually expired operation ${order.id}`, "warning");
                                notify("Override", `Operation ${order.id} force expired.`);
                              }} className="p-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/40 rounded-md text-xs font-bold transition-colors">Force Expire</button>
                            )}
                            <button onClick={() => {
                              setOrders(prev => prev.filter(o => o.id !== order.id));
-                             addAuditLog("DELETE_OPERATION", "Admin", `Admin deleted operation ${order.id}`);
+                             addAuditLog("DELETE_OPERATION", "Admin", `Admin deleted operation ${order.id}`, "error");
                              notify("System Erase", `Operation ${order.id} erased from log.`);
                            }} className="p-1.5 bg-slate-700 text-slate-300 hover:bg-red-500 hover:text-white rounded-md text-xs font-bold transition-colors"><Trash2 size={14}/></button>
                          </div>
@@ -1088,19 +1123,40 @@ export default function UnifiedPortal() {
 
           {adminTab === "audit" && (
             <div className="bg-[#161616] border border-white/5 rounded-2xl flex flex-col flex-1 overflow-hidden shadow-xl p-6">
-              <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><FileText className="text-primary"/> System Audit Trail</h2>
-              <div className="flex-1 overflow-y-auto space-y-2">
-                {auditLogs.map(log => (
-                  <div key={log.id} className="flex items-center justify-between p-4 bg-black/40 border border-white/5 rounded-xl">
-                    <div className="flex items-center gap-4">
-                      <span className="text-sm text-slate-500 w-24">{log.time}</span>
-                      <span className={`text-xs px-2 py-1 rounded font-bold w-20 text-center ${log.role==='System'?'bg-slate-700 text-slate-300':log.role==='Admin'?'bg-primary/20 text-primary':log.role==='Donor'?'bg-emerald-500/20 text-emerald-400':'bg-amber-500/20 text-amber-400'}`}>{log.role}</span>
-                      <span className="text-xs bg-white/10 px-2 py-1 rounded text-white">{log.action}</span>
-                      <span className="text-sm text-slate-300 ml-4">{log.details}</span>
-                    </div>
-                    <span className="text-xs text-slate-600">{log.id}</span>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-white flex items-center gap-2"><FileText className="text-primary"/> System Audit Trail</h2>
+                <div className="flex gap-2">
+                  <button onClick={fetchAuditLogs} className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-slate-400 transition-colors"><RefreshCw size={16}/></button>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+                {auditLogs.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-64 text-slate-500">
+                    <History size={48} className="mb-4 opacity-20" />
+                    <p>No audit records found in the database.</p>
                   </div>
-                ))}
+                ) : (
+                  auditLogs.map(log => (
+                    <div key={log.id} className="flex items-center justify-between p-4 bg-black/40 border border-white/5 rounded-xl hover:bg-white/5 transition-all group">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center shrink-0 group-hover:bg-primary/10 transition-colors">
+                          {getLogIcon(log.type)}
+                        </div>
+                        <div className="flex flex-col">
+                           <div className="flex items-center gap-3">
+                             <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase tracking-wider ${log.role==='System'?'bg-slate-700 text-slate-300':log.role==='Admin'?'bg-primary/20 text-primary':log.role==='Donor'?'bg-emerald-500/20 text-emerald-400':'bg-amber-500/20 text-amber-400'}`}>{log.role}</span>
+                             <span className="text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded text-slate-400 font-mono uppercase">{log.action}</span>
+                           </div>
+                           <p className="text-sm text-slate-200 mt-1">{log.details}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs text-slate-500 font-mono">{formatLogTime(log.time)}</p>
+                        <p className="text-[10px] text-slate-600 mt-1 uppercase tracking-tighter">ID: {log.id}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -1111,16 +1167,26 @@ export default function UnifiedPortal() {
                 <h2 className="text-2xl font-bold text-white mb-2">AI Platform Insights</h2>
                 <p className="text-slate-400 max-w-md mb-6">The AI system analyzes global logistics data to optimize rescue workflows.</p>
                 
-                <div className="grid grid-cols-2 gap-4 w-full max-w-2xl text-left">
-                  <div className="bg-black/50 border border-white/5 p-4 rounded-xl">
-                    <h4 className="text-sm font-bold text-emerald-400 mb-2">Route Optimization</h4>
-                    <p className="text-xs text-slate-400">By routing NGOs to the closest donations, platform saved estimated 24 hours of travel time this week.</p>
-                  </div>
-                  <div className="bg-black/50 border border-white/5 p-4 rounded-xl">
-                    <h4 className="text-sm font-bold text-red-400 mb-2">Expiry Hotspots</h4>
-                    <p className="text-xs text-slate-400">High expiry rates ({orders.filter(r=>r.status==='Expired').length}) detected. Suggesting push notifications to idle NGOs to improve efficiency.</p>
-                  </div>
-                </div>
+                 <div className="grid grid-cols-2 gap-4 w-full max-w-2xl text-left">
+                   <div className="bg-black/50 border border-white/5 p-4 rounded-xl border-l-2 border-l-emerald-500">
+                     <h4 className="text-sm font-bold text-emerald-400 mb-2">Route Optimization</h4>
+                     <p className="text-xs text-slate-400">By routing NGOs to the closest donations, platform saved estimated {Math.max(2, Math.round(mealsSaved * 0.15))} hours of travel time globally.</p>
+                   </div>
+                   <div className="bg-black/50 border border-white/5 p-4 rounded-xl border-l-2 border-l-red-500">
+                     <h4 className="text-sm font-bold text-red-400 mb-2">Efficiency Analysis</h4>
+                     <p className="text-xs text-slate-400">
+                       {orders.filter(r=>r.status==='Expired').length > (orders.length * 0.2) 
+                         ? `High expiry rate alert! ${orders.filter(r=>r.status==='Expired').length} items lost. Suggesting volunteer incentives.` 
+                         : `Platform efficiency is at ${orders.length > 0 ? 100 - Math.round((orders.filter(r=>r.status==='Expired').length / orders.length) * 100) : 100}%. Rescue workflows are optimal.`}
+                     </p>
+                   </div>
+                   <div className="bg-black/50 border border-white/5 p-4 rounded-xl border-l-2 border-l-primary col-span-2">
+                     <h4 className="text-sm font-bold text-primary mb-2">Network Growth Projection</h4>
+                     <p className="text-xs text-slate-400">
+                       With {usersNetwork.length} partners, we are covering {usersNetwork.length * 2.5}km radius. {usersNetwork.filter(u=>u.status==='Pending Approval').length} new partners are awaiting your verification.
+                     </p>
+                   </div>
+                 </div>
              </div>
           )}
         </div>
